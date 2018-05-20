@@ -1,0 +1,11 @@
+{
+  "function": "SitePlacement.sitePlacement",
+  "returns": {
+    "floors": {
+      "description": "The number of floors."
+    "area": {
+      "description": "The total building area."
+      
+    }
+  }
+}

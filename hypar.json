@@ -1,6 +1,7 @@
 {
   "function": "SitePlacement.sitePlacement",
   "runtime": "python3.6",
+  "parameters":{},
   "returns": {
     "floors": {
       "description": "The number of floors."

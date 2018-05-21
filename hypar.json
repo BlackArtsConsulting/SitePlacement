@@ -1,11 +1,12 @@
 {
   "function": "SitePlacement.sitePlacement",
+  "runtime": "python3.6",
   "returns": {
     "floors": {
       "description": "The number of floors."
+    },
     "area": {
       "description": "The total building area."
-      
     }
   }
 }

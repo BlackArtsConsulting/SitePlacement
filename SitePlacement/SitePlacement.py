@@ -71,6 +71,8 @@ def sitePlacement():
         spaceMesh = space.getMeshGraphic()
         model.add_triangle_mesh(spaceMesh['points'], spaceMesh['normals'], spaceMesh['indices'], 0)
     
-    return {"model": model.save_base64(), "computed":{"floors":floors, "area":area}}
+    return {"model": model.save_base64(), 'computed':{'floors':floors, 'area':area}}
+
+
 
 

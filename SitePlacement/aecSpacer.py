@@ -134,7 +134,7 @@ class aecSpacer:
             level = bound.getLevel()
             within = False
             x = 0
-            while not within and x < 100:
+            while not within and x < 10:
                 vector = shapely.LineString([bound.getCentroid(point2D = True), bndPnt])
                 posit = self.__aecErrorCheck.checkPercentage(random.randint(0, 100))
                 point = vector.interpolate(posit, normalized = True)

@@ -9,6 +9,7 @@ class TestSitePlacement(unittest.TestCase):
         result = sitePlacement()
         self.assertIsNotNone(result['model'])
         self.assertIsNotNone(result['floors'])
+        self.assertIsNotNone(result['area'])
 
 if __name__ == 'main__':
     unittest.main()

@@ -611,7 +611,7 @@ class aecSpace:
                 sides = self.getPointsSides()
                 sidNormals = self.getNormalSides()
                 points = self.getPointsExterior()
-                points = points[0] + points[1]
+                points = points['floor'] + points['ceiling']
                 sidLen = len(sides)
                 indices = []
                 normals = []

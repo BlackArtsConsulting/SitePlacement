@@ -3,8 +3,6 @@ import numpy
 import traceback
 import uuid
 
-from sympy import geometry as symGeometry
-
 from .aecErrorCheck import aecErrorCheck
 from .aecGeomCalc import aecGeomCalc
 
@@ -32,7 +30,8 @@ class aecVertex:
         """
         self.__ID = uuid.uuid4()                # A unique identifier        
         self.__angleExterior = None             # Angle in radians at the exterior of the vertex 
-        self.__angleInterior = None             # Angle in radians at the interior of the vertex      
+        self.__angleInterior = None             # Angle in radians at the interior of the vertex  
+        self.__isConvex = None                  # Boolean storing state of angle at vertex
         self.__normal = None                    # The normal vector of the vertex 
         self.__point = None                     # The x,y,z coordinates as a 3 digit tuple
         self.setVertex(points, index, nrmPoint)
@@ -122,8 +121,7 @@ class aecVertex:
             nxtVector = nxtPoint - point
             nrmVector = nrmPoint - point
             normal = prvVector + nxtVector + nrmVector
-            if self.__angleInterior <= self.__angleExterior:
-                normal *= -1
+            if self.__angleInterior <= self.__angleExterior: normal *= -1
             normal = list(normal)   
             self.__normal = tuple([1 if n > 0 else -1 if n < 0 else 0 for n in normal])
             return True
@@ -141,14 +139,17 @@ class aecVertex:
         try:
             points = list(map(self.__aecErrorCheck.checkPoint, points))
             point = points[index]
-            polygon = symGeometry.Polygon(*list(map(lambda x: symGeometry.Point(x[0], x[1]), points)))
-            polyAngles = polygon.angles
-            angles = {}
-            for key in polyAngles:
-                angles[(key.x, key.y)] = polyAngles[key].evalf()
             prvPoint = points[(index - 1) % len(points)]
             nxtPoint = points[(index + 1) % len(points)]
-            self.__angleInterior = angles[point[:-1]]
+            inVector = (point[0] - prvPoint[0], point[1] - prvPoint[1])
+            outVector = (nxtPoint[0] - point[0], nxtPoint[1] - point[1])
+            if numpy.cross(inVector, outVector) >= 0: self.__isConvex = True
+            else: self.__isConvex = False
+            cosAngle = numpy.dot(inVector, outVector)
+            sinAngle = numpy.linalg.norm(numpy.cross(inVector, outVector))
+            vtxAngle = numpy.arctan2(sinAngle, cosAngle)
+            if self.__isConvex: self.__angleInterior = vtxAngle
+            else: self.__angleInterior = (math.pi * 2) - vtxAngle
             self.__angleExterior = (math.pi * 2) - self.__angleInterior
             self.__setNormal(point, prvPoint, nxtPoint, nrmPoint)
             self.__point = point

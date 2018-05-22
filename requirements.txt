@@ -1,2 +1,9 @@
+<<<<<<< HEAD
 shapely>=1.6.4
 sympy>=1.1.1
+=======
+shapely
+sympy
+numpy
+hypar
+>>>>>>> 3f38fe7931848a073d749cbc10bc295366264001

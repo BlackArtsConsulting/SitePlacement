@@ -4,7 +4,7 @@ from .aecColors import aecColors
 from .aecSpace import aecSpace
 from .aecSpacer import aecSpacer
 
-from glTF import glTF
+from hypar import glTF
 
 siteBoundary = \
 {

@@ -1,2 +1,4 @@
 shapely
 sympy
+numpy
+hypar

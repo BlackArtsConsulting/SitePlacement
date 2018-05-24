@@ -1,12 +1,11 @@
 import math
+from  matplotlib.tri import Triangulation
 import numpy
 import random
 import traceback
 
-from scipy.spatial import Delaunay
 from shapely import geometry as shapely
 from shapely import ops as shapeOps
-from sympy import Point, Polygon
 
 from .aecCompass import aecCompass
 from .aecErrorCheck import aecErrorCheck
@@ -323,13 +322,16 @@ class aecGeomCalc:
         Returns None on failure.
         """
         try:
-            mesh = Delaunay(points)
-            triangles = mesh.simplices
-            points = list(map(lambda x: tuple([x[0], x[1]]), mesh.points))
-            analytic = Polygon(*list(map(Point, points)))
-            if analytic.is_convex():
-                indices = list(map(lambda x: tuple([int(x[0]), int(x[1]), int(x[2])]), triangles))
-                return [points, indices]
+            xPoints = [pnt[0] for pnt in points]
+            yPoints = [pnt[1] for pnt in points]
+            mesh = Triangulation(xPoints, yPoints)
+#            mesh = Delaunay(points)
+            triangles = mesh.triangles
+#            points = list(map(lambda x: tuple([x[0], x[1]]), mesh.points))
+#            analytic = Polygon(*list(map(Point, points)))
+#            if analytic.is_convex():
+#                indices = list(map(lambda x: tuple([int(x[0]), int(x[1]), int(x[2])]), triangles))
+#                return [points, indices]
             boundary = shapely.Polygon(points)
             indices = []
             for triangle in triangles:
@@ -337,8 +339,7 @@ class aecGeomCalc:
                                          points[triangle[1]],
                                          points[triangle[2]]])
                 point = test.representative_point()
-                if boundary.contains(point):
-                    indices.append(list(map(int, triangle)))         
+                if boundary.contains(point): indices.append(list(map(int, triangle)))         
             return [points, indices]
         except Exception:
             traceback.print_exc()

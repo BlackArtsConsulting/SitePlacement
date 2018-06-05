@@ -55,7 +55,7 @@ def sitePlacement():
     area = 0
     floors = 0
     for space in spaces:
-        area += space.area
+        area += space.floor.area
         floors += 1
     spaces += [site]
         

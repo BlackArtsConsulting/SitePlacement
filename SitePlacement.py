@@ -68,7 +68,7 @@ def sitePlacement():
 
     for space in spaces:
         spaceMesh = space.mesh_graphic
-        model.add_triangle_mesh(spaceMesh['vertices'], spaceMesh['normals'], spaceMesh['indices'], 0)
+        model.add_triangle_mesh(spaceMesh.vertices, spaceMesh.normals, spaceMesh.indices, 0)
     
     return {"model": model.save_base64(), 'computed':{'floors':floors, 'area':area}}
 

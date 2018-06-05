@@ -85,6 +85,8 @@ class aecSpace:
                 aecPoint(1, 1, 0),
                 aecPoint(0, 1, 0),
             ]
+            self.__ceiling.level = 1.0
+            self.__floor.level = 0.0
         self.__setBoundary(points)        
 
     def __setBoundary(self, points: List[aecPoint]) -> bool:
@@ -150,19 +152,19 @@ class aecSpace:
             traceback.print_exc() 
             return None  
 
-#    @address.setter
-#    def address(self, value: Tuple[int, int]):
-#        """
-#        Property
-#        Sets a 3-integer address designed for use when
-#        the space is employed as a voxel in a grid.
-#        """
-#        try:
-#            address = self.__address
-#            self.__address = value
-#        except Exception:
-#            self.__address = address
-#            traceback.print_exc()             
+    @address.setter
+    def address(self, value: Tuple[int, int]):
+        """
+        Property
+        Sets a 3-integer address designed for use when
+        the space is employed as a voxel in a grid.
+        """
+        try:
+            address = self.__address
+            self.__address = value
+        except Exception:
+            self.__address = address
+            traceback.print_exc()             
 
     @property
     def color(self) -> aecColor:
@@ -349,6 +351,36 @@ class aecSpace:
             return None        
 
     @property
+    def mesh(self) -> aecGeometry.mesh3D:
+        """
+        Property
+        Returns a mesh of the space.
+        Returns None on failure.
+        """
+        try:
+            ceiling_mesh = self.mesh_ceiling
+            floor_mesh = self.mesh_floor         
+            vertices = ceiling_mesh.vertices
+            normals = ceiling_mesh.normals
+            indices = ceiling_mesh.indices
+            off = len(vertices)
+            vertices += floor_mesh.vertices
+            normals + floor_mesh.normals
+            indices += [(idx[0] + off, idx[1] + off, idx[2] + off) for idx in floor_mesh.indices]            
+            side_meshes = self.mesh_sides
+            for side in side_meshes:
+                off = len(vertices)
+                vertices += side.vertices
+                normals += side.normals
+                indices += [(idx[0] + off,idx[1] + off, idx[2] + off) for idx in side.indices]   
+            return aecGeometry.mesh3D(vertices = vertices, 
+                                      indices = indices, 
+                                      normals = normals)
+        except Exception:
+            traceback.print_exc() 
+            return None  
+
+    @property
     def mesh_ceiling(self) -> aecGeometry.mesh2D:
         """
         Property
@@ -356,8 +388,8 @@ class aecSpace:
         Returns None on failure.
         """
         try:
-            mesh2D = self.__aecGeometry.getMesh2D(self.points_ceiling)
-            vertices = mesh2D.vertices
+            mesh2D = self.__aecGeometry.getMesh2D(self.ceiling.points)
+            vertices = [(vtx[0], vtx[1], self.ceiling.level) for vtx in mesh2D.vertices]
             normal = self.normal_ceiling
             normals = []
             for vertex in vertices: normals.append(normal)
@@ -369,35 +401,24 @@ class aecSpace:
             return None   
 
     @property
-    def mesh(self) -> aecGeometry.mesh3D:
+    def mesh_floor(self) -> aecGeometry.mesh3D:
         """
         Property
-        Returns a mesh of the space.
+        Returns a mesh of the lower surface.
         Returns None on failure.
         """
         try:
-            ceiling_mesh = self.mesh_ceiling
-            floor_mesh = self.mesh_floor
-            side_meshes = self.mesh_sides
-            vertices = ceiling_mesh.vertices + floor_mesh.vertices
-            for side in side_meshes: vertices += side.vertices
-            normals = ceiling_mesh.normals + floor_mesh.normals
-            for side in side_meshes: normals += side.normals
-            indices = ceiling_mesh.indices
-            offset = len(indices)
-            indices += [(idx[0] + offset, idx[1] + offset, idx[2] + offset) 
-                         for idx in floor_mesh.indices]
-            offset = len(indices)
-            for side in side_meshes:
-                indices += [(idx[0] + offset, idx[1] + offset, idx[2] + offset) 
-                             for idx in side.indices]
-                offset = len(indices)
-            return aecGeometry.mesh3D(vertices = vertices, 
-                                      indices = indices, 
-                                      normals = normals)
+            mesh2D = self.__aecGeometry.getMesh2D(self.floor.points)
+            vertices = mesh2D.vertices
+            normal = self.normal_floor
+            normals = []
+            for vertex in vertices: normals.append(normal)
+            return self.__aecGeometry.mesh3D(vertices = mesh2D.vertices,
+                                             indices = mesh2D.indices,
+                                             normals = normals)
         except Exception:
             traceback.print_exc() 
-            return None  
+            return None       
         
     @property
     def mesh_graphic(self) -> aecGeometry.mesh3Dgraphic:
@@ -407,7 +428,7 @@ class aecSpace:
         Returns None on failure.
         """
         try:
-            space_mesh = self.mesh_space
+            space_mesh = self.mesh
             vertices = []
             indices = []
             normals = []
@@ -419,27 +440,7 @@ class aecSpace:
                                              normals = normals)
         except Exception:
             traceback.print_exc() 
-            return None
-
-    @property
-    def mesh_floor(self) -> aecGeometry.mesh3D:
-        """
-        Property
-        Returns a mesh of the lower surface.
-        Returns None on failure.
-        """
-        try:
-            mesh2D = self.__aecGeometry.getMesh2D(self.points_floor)
-            vertices = mesh2D.vertices
-            normal = self.normal_floor
-            normals = []
-            for vertex in vertices: normals.append(normal)
-            return self.__aecGeometry.mesh3D(vertices = mesh2D.vertices,
-                                             indices = mesh2D.indices,
-                                             normals = normals)
-        except Exception:
-            traceback.print_exc() 
-            return None          
+            return None   
 
     @property
     def mesh_sides(self) -> List[aecGeometry.mesh2D]:

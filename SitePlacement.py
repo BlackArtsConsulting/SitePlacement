@@ -44,7 +44,7 @@ def sitePlacement():
     xWidth = buildings[0]['diameter'][random.randint(0, 1)]
     yDepth = xWidth * 1.618
     building = aecSpace()
-    building.makeBox(aecPoint(0, 0, 0), xDist = xWidth, yDist = yDepth)
+    building.makeBox(aecPoint(0, 0, 0), xDist = xWidth, yDist = yDepth, zDist = 0)
     building.rotate(random.randint(0, 360))
     if spacer.placeWithin(building, site):
         building.height = buildings[0]['height']

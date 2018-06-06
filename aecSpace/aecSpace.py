@@ -123,10 +123,19 @@ class aecSpace:
             while index < length:
                 indexPre = (index - 1) % length
                 indexNxt = (index + 1) % length
-                vtxSW = aecVertex(flrPnts[index], clgPnts[index], flrPnts[indexNxt])
-                vtxSE = aecVertex(flrPnts[indexNxt], flrPnts[index], clgPnts[indexNxt])
-                vtxNE = aecVertex(clgPnts[indexNxt], flrPnts[indexNxt], clgPnts[index])
-                vtxNW = aecVertex(clgPnts[index], clgPnts[indexNxt], flrPnts[index])
+                vtxSW = aecVertex(flrPnts[index], flrPnts[indexNxt], clgPnts[index])
+                vtxNW = aecVertex(clgPnts[index], flrPnts[index], clgPnts[indexNxt])
+                vtxNE = aecVertex(clgPnts[indexNxt], clgPnts[index], flrPnts[indexNxt])
+                vtxSE = aecVertex(flrPnts[indexNxt], clgPnts[indexNxt], flrPnts[index])
+                
+                                
+                
+                
+                
+#                vtxSW = aecVertex(flrPnts[index], clgPnts[index], flrPnts[indexNxt])
+#                vtxSE = aecVertex(flrPnts[indexNxt], flrPnts[index], clgPnts[indexNxt])
+#                vtxNE = aecVertex(clgPnts[indexNxt], flrPnts[indexNxt], clgPnts[index])
+#                vtxNW = aecVertex(clgPnts[index], clgPnts[indexNxt], flrPnts[index])
                 vertices.append(self.quad_vertices(ID = index, 
                                                    SW = vtxSW, SE = vtxSE,
                                                    NE = vtxNE, NW = vtxNW))
@@ -556,8 +565,7 @@ class aecSpace:
         """
         try:
             norm_sides = []
-            for side in self.normals_sides:
-#                normal = [(array(nml) *-1) for nml in list(self.__aecGeometry.getNormalSurface(side))]
+            for side in self.normals_sides: 
                 norm_sides.append(self.__aecGeometry.getNormalSurface(side))
             return norm_sides
         except Exception:

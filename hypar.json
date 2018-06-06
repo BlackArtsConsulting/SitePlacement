@@ -1,7 +1,29 @@
 {
   "function": "SitePlacement.sitePlacement",
   "runtime": "python3.6",
-  "parameters":{},
+  "parameters":{
+    "width": {
+      "description": "Building width.",
+      "max": 300,
+      "min": 150,
+      "step": 5,
+      "type": "number"    
+    },
+    "rotation": {
+      "description": "Building rotation.",
+      "max": 355,
+      "min": 5,
+      "step": 10,
+      "type": "number"    
+    },
+    "area": {
+      "description": "Target building area.",
+      "max": 200000,
+      "min": 100000,
+      "step": 1000,
+      "type": "number"    
+    }    
+  },
   "returns": {
     "floors": {
       "description": "The number of floors."

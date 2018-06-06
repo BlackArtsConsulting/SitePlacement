@@ -86,15 +86,15 @@ def sitePlacement(width: float, rotation: float, area: float):
     model = glTF()
 
     # Create materials to use in the model.
-    model.add_material(0.0, 0.0, 1.0, 0.9, 1.0, "Blue")
-    model.add_material(0.0, 1.0, 0.0, 0.9, 1.0, "Green")
+    m_index = model.add_material(0.0, 0.0, 1.0, 0.9, 1.0, "Blue")
+    m_index1 = model.add_material(0.0, 1.0, 0.0, 0.9, 1.0, "Green")
 
     spaceMesh = site.mesh_graphic
-    model.add_triangle_mesh(spaceMesh.vertices, spaceMesh.normals, spaceMesh.indices, 0)
+    model.add_triangle_mesh(spaceMesh.vertices, spaceMesh.normals, spaceMesh.indices, m_index1)
     
     for space in building:
         spaceMesh = space.mesh_graphic
-        model.add_triangle_mesh(spaceMesh.vertices, spaceMesh.normals, spaceMesh.indices, 0)
+        model.add_triangle_mesh(spaceMesh.vertices, spaceMesh.normals, spaceMesh.indices, m_index)
         
 #        print(spaceMesh.vertices)
 #        for item in spaceMesh.vertices: print(type(item))
@@ -110,12 +110,12 @@ def sitePlacement(width: float, rotation: float, area: float):
 #        for item in spaceMesh.normals: print(item)
 #        
         
-        
+    return {"model": model.save_base64(), 'computed':{'floors':floors, 'area':area}}        
     
 #    model.save('C:\\Users\\Anthony\\Dropbox\\Business\\BlackArts\\Development\\GitHub\\SitePlacement\\model.gltf')
 #    model.save_glb('C:\\Users\\Anthony\\Dropbox\\Business\\BlackArts\\Development\\GitHub\\SitePlacement\\model.glb')
     
-    return {"model": model.save_base64(), 'computed':{'floors':floors, 'area':area}}
+
     
 # sitePlacement(random.uniform(150, 300), random.uniform(5, 355), random.uniform(100000, 200000))
 

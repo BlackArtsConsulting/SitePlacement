@@ -2,25 +2,39 @@
   "function": "SitePlacement.sitePlacement",
   "runtime": "python3.6",
   "parameters":{
+    "length": {
+      "description": "Building length.",
+      "max": 300,
+      "min": 200,
+      "step": 50,
+      "type": "number"    
+    },
     "width": {
       "description": "Building width.",
       "max": 300,
-      "min": 150,
-      "step": 5,
+      "min": 100,
+      "step": 100,
       "type": "number"    
     },
+    "height": {
+      "description": "Building floor height.",
+      "max": 40,
+      "min": 20,
+      "step": 10,
+      "type": "number"    
+    },    
     "rotation": {
       "description": "Building rotation.",
-      "max": 355,
-      "min": 5,
-      "step": 10,
+      "max": 180,
+      "min": 0,
+      "step": 60,
       "type": "number"    
     },
     "area": {
       "description": "Target building area.",
       "max": 200000,
       "min": 100000,
-      "step": 1000,
+      "step": 20000,
       "type": "number"    
     }    
   },

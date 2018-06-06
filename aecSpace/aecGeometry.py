@@ -327,7 +327,8 @@ class aecGeometry:
                 ]
                 triangle = shapely.polygon.orient(shapely.Polygon(triPoints))
                 tstPoint = triangle.representative_point()
-                if boundary.contains(tstPoint): indices.append(tuple(item))
+                if boundary.contains(tstPoint): 
+                    indices.append(tuple([int(element) for element in list(item)]))
             mesh = self.mesh2D
             mesh.vertices = [pnt.xyz for pnt in points]
             mesh.indices = indices
@@ -358,10 +359,9 @@ class aecGeometry:
         """
         try:
             srfNormal = normals[0]
-            for normal in normals[1:]:
-                srfNormal = numpy.add(srfNormal, normal)
+            for normal in normals[1:]: srfNormal = numpy.add(srfNormal, normal)
             srfNormal = numpy.divide(srfNormal, len(normals))
-            return tuple(srfNormal)
+            return tuple([float(element) for element in list(srfNormal)])
         except Exception:
             traceback.print_exc()
             return None       

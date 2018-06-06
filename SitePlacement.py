@@ -36,15 +36,15 @@ buildings = \
 def sitePlacement():
     spacer = aecSpacer()        
     site = aecSpace()
-    sitePoints = [aecPoint(coord[0], coord[1]) for coord in siteBoundary["coordinates"]]
-    site.boundary = sitePoints
+    site.boundary = [aecPoint(coord[0], coord[1]) for coord in siteBoundary["coordinates"]]
     site.color = aecColor.green
-    site.height = -0.1
+    site.level = -0.1
+    site.height = 0.1
     spaces = []
-    xWidth = buildings[0]['diameter'][random.randint(0, 1)]
+    xWidth = buildings[0]['diameter'][random.randint(0, 0)]
     yDepth = xWidth * 1.618
     building = aecSpace()
-    building.makeBox(aecPoint(0, 0, 0), xDist = xWidth, yDist = yDepth, zDist = 1)
+    building.makeBox(aecPoint(0, 0, 0), xDist = xWidth, yDist = yDepth, zDist = 10)
     building.rotate(random.randint(0, 360))
     if spacer.placeWithin(building, site):
         building.height = buildings[0]['height']
@@ -69,8 +69,29 @@ def sitePlacement():
     for space in spaces:
         spaceMesh = space.mesh_graphic
         model.add_triangle_mesh(spaceMesh.vertices, spaceMesh.normals, spaceMesh.indices, 0)
+        
+#        print(spaceMesh.vertices)
+#        for item in spaceMesh.vertices: print(type(item))
+#        print(len(spaceMesh.vertices))
+#        print(spaceMesh.normals)
+#        for item in spaceMesh.normals: print(type(item))        
+#        print(len(spaceMesh.normals))        
+#        print(spaceMesh.indices)
+#        for item in spaceMesh.indices: print(type(item))        
+#        print(len(spaceMesh.indices))        
+#        print(min(spaceMesh.normals))
+#        print(max(spaceMesh.normals))
+#        for item in spaceMesh.normals: print(item)
+#        
+        
+        
+    
+#    model.save('C:\\Users\\Anthony\\Dropbox\\Business\\BlackArts\\Development\\GitHub\\SitePlacement\\model.gltf')
+#    model.save_glb('C:\\Users\\Anthony\\Dropbox\\Business\\BlackArts\\Development\\GitHub\\SitePlacement\\model.glb')
     
     return {"model": model.save_base64(), 'computed':{'floors':floors, 'area':area}}
+    
+# sitePlacement()
 
 
 

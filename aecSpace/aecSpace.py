@@ -99,38 +99,37 @@ class aecSpace:
         try:
             self.__floor.points = points
             self.__ceiling.points = points
-            fPnts = self.__floor.points            
-            cPnts = self.__ceiling.points
+            flrPnts = self.__floor.points            
+            clgPnts = self.__ceiling.points
             index = 0
-            length = len(fPnts)
+            length = len(flrPnts)
             vertices = []
             while index < length:
-                indexM = (index - 1) % length
-                indexP = (index + 1) % length
-                vertices.append(aecVertex(fPnts[index], fPnts[indexM], 
-                                          cPnts[index], fPnts[indexP]))
+                indexPre = (index - 1) % length
+                indexNxt = (index + 1) % length
+                vertices.append(aecVertex(flrPnts[index], flrPnts[indexPre], flrPnts[indexNxt]))
                 index += 1
             self.__vertices_floor = vertices
             index = 0
-            length = len(cPnts)
             vertices = []
             while index < length:
-                indexM = (index - 1) % length
-                indexP = (index + 1) % length                
-                vertices.append(aecVertex(cPnts[index], cPnts[indexM], 
-                                          fPnts[index], cPnts[indexP]))
+                indexPre = (index - 1) % length
+                indexNxt = (index + 1) % length                
+                vertices.append(aecVertex(clgPnts[index], clgPnts[indexPre], clgPnts[indexNxt]))
                 index += 1            
             self.__vertices_ceiling = vertices
             index = 0
-            cVtxs = self.__vertices_ceiling
-            fVtxs = self.__vertices_floor
-            length = len(fVtxs)
             vertices = []          
             while index < length:
-                indexP = (index + 1) % length                
-                vertices.append(self.quad_vertices(ID = index,
-                                                   SW = fVtxs[index],  SE = fVtxs[indexP],
-                                                   NE = cVtxs[indexP], NW = cVtxs[index]))
+                indexPre = (index - 1) % length
+                indexNxt = (index + 1) % length
+                vtxSW = aecVertex(flrPnts[index], clgPnts[index], flrPnts[indexNxt])
+                vtxSE = aecVertex(flrPnts[indexNxt], flrPnts[index], clgPnts[indexNxt])
+                vtxNE = aecVertex(clgPnts[indexNxt], flrPnts[indexNxt], clgPnts[index])
+                vtxNW = aecVertex(clgPnts[index], clgPnts[indexNxt], flrPnts[index])
+                vertices.append(self.quad_vertices(ID = index, 
+                                                   SW = vtxSW, SE = vtxSE,
+                                                   NE = vtxNE, NW = vtxNW))
                 index += 1            
             self.__vertices_sides = vertices
             self.__boundarySet = True
@@ -359,23 +358,23 @@ class aecSpace:
         """
         try:
             ceiling_mesh = self.mesh_ceiling
-            floor_mesh = self.mesh_floor         
             vertices = ceiling_mesh.vertices
             normals = ceiling_mesh.normals
             indices = ceiling_mesh.indices
             off = len(vertices)
+            floor_mesh = self.mesh_floor         
             vertices += floor_mesh.vertices
-            normals + floor_mesh.normals
+            normals += floor_mesh.normals
             indices += [(idx[0] + off, idx[1] + off, idx[2] + off) for idx in floor_mesh.indices]            
             side_meshes = self.mesh_sides
             for side in side_meshes:
                 off = len(vertices)
                 vertices += side.vertices
                 normals += side.normals
-                indices += [(idx[0] + off,idx[1] + off, idx[2] + off) for idx in side.indices]   
+                indices += [(idx[0] + off,idx[1] + off, idx[2] + off) for idx in side.indices] 
             return aecGeometry.mesh3D(vertices = vertices, 
                                       indices = indices, 
-                                      normals = normals)
+                                      normals = normals)                      
         except Exception:
             traceback.print_exc() 
             return None  
@@ -413,7 +412,7 @@ class aecSpace:
             normal = self.normal_floor
             normals = []
             for vertex in vertices: normals.append(normal)
-            return self.__aecGeometry.mesh3D(vertices = mesh2D.vertices,
+            return self.__aecGeometry.mesh3D(vertices = mesh2D.vertices[::-1],
                                              indices = mesh2D.indices,
                                              normals = normals)
         except Exception:
@@ -558,7 +557,8 @@ class aecSpace:
         try:
             norm_sides = []
             for side in self.normals_sides:
-                norm_sides.append(self.__aecGeometry.getNormalSurface(array(side)))
+#                normal = [(array(nml) *-1) for nml in list(self.__aecGeometry.getNormalSurface(side))]
+                norm_sides.append(self.__aecGeometry.getNormalSurface(side))
             return norm_sides
         except Exception:
             traceback.print_exc() 
@@ -704,7 +704,7 @@ class aecSpace:
             traceback.print_exc()
             return False
 
-    def makeBox(self, origin: aecPoint, xDist: float, yDist: float, zDist: float) -> bool:
+    def makeBox(self, origin: aecPoint, xDist: float = 1, yDist: float = 1, zDist: float = 1) -> bool:
         """
         Creates a rectangular space constructed from an
         origin point and a diagonally opposite point.

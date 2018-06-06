@@ -1,5 +1,5 @@
 import math
-from numpy import array
+from numpy import array, cross
 import traceback
 from typing import Tuple
 from uuid import uuid4
@@ -20,34 +20,27 @@ class aecVertex():
         '__convex',
         '__ID',
         '__normal',
-        '__point',
-        '__pointNxt',
-        '__pointNrm',
-        '__pointPre'        
+        '__point'
     ]
     
     __aecGeometry = aecGeometry()
       
-    def __init__(self, pnt: aecPoint, pntPre: aecPoint, pntNrm: aecPoint, pntNxt: aecPoint):
+    def __init__(self, pnt: aecPoint, pntPre: aecPoint, pntNxt: aecPoint):
         """
         Constructor records the vertex point and three adjacent points 
         to calculate angles, convexity, and point normal of the vertex.
         """   
         self.__ID = str(uuid4()) 
-        self.__point = aecPoint(pnt.x, pnt.y, pnt.z)
-        self.__pointPre = aecPoint(pntPre.x, pntPre.y, pntPre.z)
-        self.__pointNrm = aecPoint(pntNrm.x, pntNrm.y, pntNrm.z)
-        self.__pointNxt = aecPoint(pntNxt.x, pntNxt.y, pntNxt.z)
-        angles = self.__aecGeometry.getAngles(self.__point, self.__pointPre, self.__pointNxt)
+        self.__point = pnt
+        angles = self.__aecGeometry.getAngles(pnt, pntPre, pntNxt)
         self.__angle_exterior = angles.exterior
         self.__angle_interior = angles.interior
         self.__convex = angles.convex        
-        preVector = self.__pointPre.xyz_array - self.__point.xyz_array
-        nxtVector = self.__pointNxt.xyz_array - self.__point.xyz_array
-        nrmVector = self.__pointNrm.xyz_array - self.__point.xyz_array
-        normal = preVector + nxtVector + nrmVector
-        if self.convex: normal *= -1
-        self.__normal = tuple([1 if n > 0 else -1 if n < 0 else 0 for n in list(normal)])
+        preVector = pntPre.xyz_array - pnt.xyz_array
+        nxtVector = pntNxt.xyz_array - pnt.xyz_array
+        preNormal = cross(preVector, nxtVector)
+        normal = preNormal / (math.sqrt(sum(preNormal**2)))
+        self.__normal = tuple(normal)
 
     @property
     def angle_exterior(self) -> float:

@@ -2,7 +2,7 @@ import math
 import traceback
 
 from random import uniform
-from typing import List
+from typing import List, Tuple
 from uuid import uuid4
 
 from shapely import geometry as shapely
@@ -16,7 +16,7 @@ from .aecPoint import aecPoint
 class aecBoundary:
     """
     Represents a 2D polygonal boundary as a sequence of
-    aecVertex2D instances in counter-clockwise order.
+    aecPoint instances in counter-clockwise order.
     """
     __aecValid = aecValid()
     __aecGeometry = aecGeometry()
@@ -26,6 +26,7 @@ class aecBoundary:
          '__convex',
          '__ID',
          '__level',
+         '__normal',
          '__points',
          '__polygon',
     ]   
@@ -38,7 +39,8 @@ class aecBoundary:
         """
         self.__boundarySet = False  #Stores whether a points set was successful        
         self.__ID = str(uuid4())
-        self.__level = 0.0        
+        self.__level = 0.0
+        self.__normal = None
         self.__points = None
         if not points:
             points = \
@@ -176,7 +178,8 @@ class aecBoundary:
                                            SW = aecPoint(bounds[0], bounds[1], level),
                                            SE = aecPoint(bounds[2], bounds[1], level),
                                            NE = aecPoint(bounds[2], bounds[3], level),
-                                           NW = aecPoint(bounds[0], bounds[3], level))
+                                           NW = aecPoint(bounds[0], bounds[3], level),
+                                           normal = self.normal)
         except:
             traceback.print_exc() 
             return None  
@@ -189,7 +192,9 @@ class aecBoundary:
         """
         try:
             box_pnts = self.box_points
-            return self.__aecGeometry.getMidpoint(box_pnts.SW, box_pnts.NE)
+            point = self.__aecGeometry.getMidpoint(box_pnts.SW, box_pnts.NE)
+            point.z = self.level
+            return point
         except:
             traceback.print_exc() 
             return None 
@@ -271,18 +276,51 @@ class aecBoundary:
             traceback.print_exc() 
         
     @property
-    def mesh(self) -> aecGeometry.mesh2D:
+    def mesh(self) -> aecGeometry.mesh3D:
         """
         Property
         Returns a Delaunay mesh of points and indices.
         Returns None on failure.
         """
         try:
-            return self.__aecGeometry.getMesh2D(self.points)
+            mesh2D = self.__aecGeometry.getMesh2D(self.points)
+            vertices = mesh2D.vertices
+            normal = self.normal
+            normals = []
+            for vertex in vertices: normals.append(normal)
+            return self.__aecGeometry.mesh3D(vertices = mesh2D.vertices,
+                                             indices = mesh2D.indices,
+                                             normals = normals)            
         except:
             traceback.print_exc() 
             return None
 
+    @property
+    def normal(self) -> Tuple[float, float, float]:
+        """
+        Property
+        Returns the level of the boundary.
+        Returns None on failure.
+        """
+        try:
+            return self.__normal
+        except:
+            traceback.print_exc() 
+            return None        
+ 
+    @normal.setter
+    def normal(self, value: Tuple[float, float, float]):
+        """
+        Property
+        Sets the level of the boundary.
+        """        
+        try:
+            preVal = self.__normal
+            self.__normal = (float(value[0]), float(value[1]), float(value[2]))
+        except:
+            self.__normal = preVal
+            traceback.print_exc()    
+    
     @property
     def points(self) -> List[aecPoint]:
         """

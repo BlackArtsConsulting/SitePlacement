@@ -82,7 +82,8 @@ class aecGeometry:
         ])
     
     # Defines a data structure of four points with locations indicated
-    # by compass point abbreviations in counterclockwise order.
+    # by compass point abbreviations in counterclockwise order with an
+    # associated normal.
     
     quad_points = \
         NamedTuple(
@@ -92,7 +93,8 @@ class aecGeometry:
             ('SW', aecPoint), 
             ('SE', aecPoint), 
             ('NE', aecPoint),
-            ('NW', aecPoint)
+            ('NW', aecPoint),
+            ('normal', Tuple[float, float, float])
         ])    
     
     # Defines an angle data structure listing
@@ -351,20 +353,37 @@ class aecGeometry:
             traceback.print_exc()
             return None
                 
-    def getNormalSurface(self, normals: List[numpy.array]) -> Tuple[float, float, float]:
+    
+    def getNormal(self, point: aecPoint, prePoint: aecPoint, nxtPoint: aecPoint) -> Tuple[float, float, float]:
         """
-        Returns an averaged normal from a list of
-        vertices describing a surface boundary.
-        Returns None on failure.
+        Returns the normal from three points.
         """
         try:
-            srfNormal = normals[0]
-            for normal in normals[1:]: srfNormal = numpy.add(srfNormal, normal)
-            srfNormal = numpy.divide(srfNormal, len(normals))
-            return tuple([float(element) for element in list(srfNormal)])
+            def cross(a, b):
+                c = [a[1]*b[2] - a[2]*b[1],
+                     a[2]*b[0] - a[0]*b[2],
+                     a[0]*b[1] - a[1]*b[0]]
+                return c            
+            a = nxtPoint.xyz   
+            b = point.xyz            
+            c = prePoint.xyz
+            v1l = math.sqrt(math.pow(b[0] - a[0], 2) + math.pow(b[1] - a[1],2) + math.pow(b[2] - a[2], 2))
+            v2l = math.sqrt(math.pow(c[0] - b[0], 2) + math.pow(c[1] - b[1],2) + math.pow(c[2] - b[2], 2))
+            v1 = [(b[0] - a[0])/v1l, (b[1] - a[1])/v1l, (b[2] - a[2])/v1l]
+            v2 = [(c[0] - b[0])/v2l, (c[1] - b[1])/v2l, (c[2] - b[2])/v2l]            
+            cp = cross(v1, v2)
+            cp = tuple([cp[0] + 0.0, cp[1] + 0.0, cp[2] + 0.0])
+            return cp
+            
+#            preVector = prePoint.xyz_array - point.xyz_array
+#            nxtVector = nxtPoint.xyz_array - point.xyz_array
+#            preNormal = numpy.cross(preVector, nxtVector)
+#            normal = preNormal / (math.sqrt(sum(preNormal**2)))
+#
+#            return tuple(normal)
         except Exception:
             traceback.print_exc()
-            return None       
+            return None
 
     def isConvex(self, points: List[aecPoint]) -> bool:
         """

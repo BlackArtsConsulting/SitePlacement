@@ -39,6 +39,7 @@ def makeBuilding(site: aecSpace, length: float, width: float, height: float,
     yDepth = width * 1.618
     building = aecSpace()
     building.makeBox(aecPoint(0, 0, 0), xDist = width, yDist = yDepth, zDist = 40)
+#    building.makePolygon(radius = 100, sides = 5)
     building.rotate(rotation)
     if spacer.placeWithin(building, site):
         building.level = 0
@@ -58,28 +59,29 @@ def makeSite():
 def sitePlacement(length: float, width: float, height: float, 
                   rotation: float, area: float):
     site = makeSite()
+    site.moveBy(0, 0, 0)
     building = makeBuilding(site, length, width, height, rotation, area)
     area = 0
     floors = 0
     for space in building:
         area += space.floor.area
         floors += 1
-    # glTF output
     model = glTF()
     colorBlue = model.add_material(0.0, 0.631, 0.945, 0.9, 1.0, "Blue")
     colorGreen = model.add_material(0.486, 0.733, 0.0, 0.9, 0.0, "Green")
     colorOrange = model.add_material(0.964, 0.325, 0.078, 0.9, 1.0, "Orange")
     colorYellow = model.add_material(1.0, 0.733, 0.0, 0.9, 1.0, "Yellow")
     spaceMesh = site.mesh_graphic
-    model.add_triangle_mesh(spaceMesh.vertices, spaceMesh.normals, spaceMesh.indices, colorGreen)    
+    model.add_triangle_mesh(spaceMesh.vertices, spaceMesh.normals, spaceMesh.indices, colorGreen)
     for space in building:
+        space.moveBy(0, 0, 0)
         spaceMesh = space.mesh_graphic
         colorIndex = random.randint(0, 2)
         if colorIndex == 0: color = colorBlue
         if colorIndex == 1: color = colorOrange
         if colorIndex == 2: color = colorYellow      
         model.add_triangle_mesh(spaceMesh.vertices, spaceMesh.normals, spaceMesh.indices, color)   
-    #model.save_glb('C:\\Users\\Anthony\\Dropbox\\Business\\BlackArts\\Development\\GitHub\\SitePlacement\\model.glb')
+#    model.save_glb('C:\\Users\\Anthony\\Dropbox\\Business\\BlackArts\\Development\\GitHub\\SitePlacement\\model.glb')
     return {"model": model.save_base64(), 'computed':{'floors':floors, 'area':area}}   
 
 #sitePlacement(length = random.uniform(200, 300), 

@@ -1,14 +1,13 @@
 import traceback
 
-from numpy import array
-from typing import NamedTuple, List, Tuple
+from numpy import array, dot
+from typing import List, Tuple
 from uuid import uuid4
 
 from .aecBoundary import aecBoundary
 from .aecColor import aecColor
 from .aecGeometry import aecGeometry
 from .aecPoint import aecPoint
-from .aecVertex import aecVertex
 
 class aecSpace:
     """
@@ -26,20 +25,6 @@ class aecSpace:
     * Curved boundaries must be represented as a series of straight segments.
     """
     
-    # Defines a data structure of four vertices with locations indicated
-    # by compass point abbreviations in counterclockwise order.
-    
-    quad_vertices = \
-        NamedTuple(
-        'quad_vertices',
-        [
-            ('ID', int),
-            ('SW', aecVertex), 
-            ('SE', aecVertex), 
-            ('NE', aecVertex),
-            ('NW', aecVertex)
-        ])    
-
     __slots__ = \
     [ 
         '__address',
@@ -50,9 +35,7 @@ class aecSpace:
         '__height',
         '__ID',
         '__name',
-        '__vertices_ceiling',
-        '__vertices_floor',
-        '__vertices_sides',
+        '__sides'
     ]
     
     __aecGeometry = aecGeometry()
@@ -74,9 +57,7 @@ class aecSpace:
         self.__height = float(height)
         self.__ID = str(uuid4())
         self.__name = ''        
-        self.__vertices_ceiling = None
-        self.__vertices_floor = None
-        self.__vertices_sides = None
+        self.__sides = None
         if not points:
             points =\
             [
@@ -86,9 +67,12 @@ class aecSpace:
                 aecPoint(0, 1, 0),
             ]
             self.__ceiling.level = 1.0
+            self.__ceiling.normal = (0.0, 0.0, 1.0)
             self.__floor.level = 0.0
-        self.__setBoundary(points)        
-
+            self.__floor.normal = (0.0, 0.0, -1.0)
+        self.floor.points = points
+        self.__setBoundary(self.floor.points)       
+  
     def __setBoundary(self, points: List[aecPoint]) -> bool:
         """
         INTERNAL
@@ -97,50 +81,26 @@ class aecSpace:
         Returns False on failure.
         """
         try:
-            self.__floor.points = points
-            self.__ceiling.points = points
-            flrPnts = self.__floor.points            
-            clgPnts = self.__ceiling.points
+            self.ceiling.points = points
+            self.floor.points = points
+            flrPoints = self.floor.points            
+            clgPoints = self.ceiling.points
+            sides = []            
             index = 0
-            length = len(flrPnts)
-            vertices = []
+            length = len(flrPoints)
             while index < length:
-                indexPre = (index - 1) % length
                 indexNxt = (index + 1) % length
-                vertices.append(aecVertex(flrPnts[index], flrPnts[indexPre], flrPnts[indexNxt]))
+                side_normal = self.__aecGeometry.getNormal(flrPoints[index], 
+                                                           clgPoints[index], 
+                                                           flrPoints[indexNxt])
+                sides.append(self.__aecGeometry.quad_points(ID = index,
+                                                            SW = flrPoints[index],
+                                                            SE = flrPoints[indexNxt],
+                                                            NE = clgPoints[indexNxt],
+                                                            NW = clgPoints[index],
+                                                            normal = side_normal))
                 index += 1
-            self.__vertices_floor = vertices
-            index = 0
-            vertices = []
-            while index < length:
-                indexPre = (index - 1) % length
-                indexNxt = (index + 1) % length                
-                vertices.append(aecVertex(clgPnts[index], clgPnts[indexPre], clgPnts[indexNxt]))
-                index += 1            
-            self.__vertices_ceiling = vertices
-            index = 0
-            vertices = []          
-            while index < length:
-                indexPre = (index - 1) % length
-                indexNxt = (index + 1) % length
-                vtxSW = aecVertex(flrPnts[index], flrPnts[indexNxt], clgPnts[index])
-                vtxNW = aecVertex(clgPnts[index], flrPnts[index], clgPnts[indexNxt])
-                vtxNE = aecVertex(clgPnts[indexNxt], clgPnts[index], flrPnts[indexNxt])
-                vtxSE = aecVertex(flrPnts[indexNxt], clgPnts[indexNxt], flrPnts[index])
-                
-                                
-                
-                
-                
-#                vtxSW = aecVertex(flrPnts[index], clgPnts[index], flrPnts[indexNxt])
-#                vtxSE = aecVertex(flrPnts[indexNxt], flrPnts[index], clgPnts[indexNxt])
-#                vtxNE = aecVertex(clgPnts[indexNxt], flrPnts[indexNxt], clgPnts[index])
-#                vtxNW = aecVertex(clgPnts[index], clgPnts[indexNxt], flrPnts[index])
-                vertices.append(self.quad_vertices(ID = index, 
-                                                   SW = vtxSW, SE = vtxSE,
-                                                   NE = vtxNE, NW = vtxNW))
-                index += 1            
-            self.__vertices_sides = vertices
+            self.__sides = sides
             self.__boundarySet = True
         except Exception:
             traceback.print_exc() 
@@ -256,6 +216,18 @@ class aecSpace:
             return None           
  
     @property
+    def center(self) -> aecPoint:
+        """
+        Returns the center of the space determined as the
+        halfway point between the ceiling and floor centers.
+        """
+        try:
+            return self.__aecGeometry.getMidpoint(self.ceiling.center, self.floor.center)
+        except Exception:
+            traceback.print_exc() 
+            return None                      
+    
+    @property
     def floor(self) -> aecBoundary:
         """
         Property
@@ -277,7 +249,7 @@ class aecSpace:
         Returns False on failure.
         """
         try:
-            flrPnts = self.__floor.points
+            flrPnts = self.floor.points
             self.__setBoundary(value)
             if not self.__boundarySet: raise Exception
         except Exception:
@@ -366,16 +338,16 @@ class aecSpace:
         Returns None on failure.
         """
         try:
-            ceiling_mesh = self.mesh_ceiling
+            ceiling_mesh = self.ceiling.mesh
             vertices = ceiling_mesh.vertices
+            indices = ceiling_mesh.indices     
             normals = ceiling_mesh.normals
-            indices = ceiling_mesh.indices
             off = len(vertices)
-            floor_mesh = self.mesh_floor         
-            vertices += floor_mesh.vertices
+            floor_mesh = self.floor.mesh      
+            vertices += floor_mesh.vertices[::-1]
             normals += floor_mesh.normals
-            indices += [(idx[0] + off, idx[1] + off, idx[2] + off) for idx in floor_mesh.indices]            
-            side_meshes = self.mesh_sides
+            indices += [(idx[0] + off, idx[1] + off, idx[2] + off) for idx in floor_mesh.indices[::-1]]            
+            side_meshes = self.side_meshes
             for side in side_meshes:
                 off = len(vertices)
                 vertices += side.vertices
@@ -387,47 +359,7 @@ class aecSpace:
         except Exception:
             traceback.print_exc() 
             return None  
-
-    @property
-    def mesh_ceiling(self) -> aecGeometry.mesh2D:
-        """
-        Property
-        Returns a mesh of the upper surface.
-        Returns None on failure.
-        """
-        try:
-            mesh2D = self.__aecGeometry.getMesh2D(self.ceiling.points)
-            vertices = [(vtx[0], vtx[1], self.ceiling.level) for vtx in mesh2D.vertices]
-            normal = self.normal_ceiling
-            normals = []
-            for vertex in vertices: normals.append(normal)
-            return self.__aecGeometry.mesh3D(vertices = mesh2D.vertices,
-                                             indices = mesh2D.indices,
-                                             normals = normals)
-        except Exception:
-            traceback.print_exc() 
-            return None   
-
-    @property
-    def mesh_floor(self) -> aecGeometry.mesh3D:
-        """
-        Property
-        Returns a mesh of the lower surface.
-        Returns None on failure.
-        """
-        try:
-            mesh2D = self.__aecGeometry.getMesh2D(self.floor.points)
-            vertices = mesh2D.vertices
-            normal = self.normal_floor
-            normals = []
-            for vertex in vertices: normals.append(normal)
-            return self.__aecGeometry.mesh3D(vertices = mesh2D.vertices[::-1],
-                                             indices = mesh2D.indices,
-                                             normals = normals)
-        except Exception:
-            traceback.print_exc() 
-            return None       
-        
+     
     @property
     def mesh_graphic(self) -> aecGeometry.mesh3Dgraphic:
         """
@@ -449,32 +381,6 @@ class aecSpace:
         except Exception:
             traceback.print_exc() 
             return None   
-
-    @property
-    def mesh_sides(self) -> List[aecGeometry.mesh2D]:
-        """
-        Property
-        Returns a mesh of the upper surface.
-        Returns None on failure.
-        """
-        try:
-            sides = self.points_sides
-            normals = self.normal_sides
-            meshes = []
-            index = 0
-            for side in sides:
-               side_vertices = [side.SW.xyz, side.SE.xyz, side.NE.xyz, side.NW.xyz]
-               side_indices = [(1, 2, 3), (0, 1, 3)]
-               side_normals = []
-               for vertex in side_vertices: side_normals.append(normals[index])
-               meshes.append(aecGeometry.mesh3D(vertices = side_vertices,
-                                                indices = side_indices,
-                                                normals = side_normals))
-               index += 1
-            return meshes
-        except Exception:
-            traceback.print_exc() 
-            return None  
 
     @property
     def name(self) -> str:
@@ -503,99 +409,49 @@ class aecSpace:
             traceback.print_exc() 
 
     @property
-    def normal_ceiling(self) -> Tuple[int, int, int]:
+    def side_meshes(self) -> List[aecGeometry.mesh2D]:
         """
         Property
-        Returns the list of point normals from each vertex.
+        Returns a mesh of the upper surface.
         Returns None on failure.
         """
         try:
-            normals = [vertex.normal_array for vertex in self.__vertices_ceiling]
-            return self.__aecGeometry.getNormalSurface(normals)
+            sides = self.side_points
+            normals = self.side_normals
+            meshes = []
+            index = 0
+            for side in sides:
+               side_vertices = [side.SW.xyz, side.SE.xyz, side.NE.xyz, side.NW.xyz]
+               side_indices = [(0, 1, 2), (2, 3, 0)]
+               side_normals = []
+               for vertex in side_vertices: side_normals.append(normals[index])
+               meshes.append(aecGeometry.mesh3D(vertices = side_vertices,
+                                                indices = side_indices,
+                                                normals = side_normals))
+               index += 1
+            return meshes
         except Exception:
             traceback.print_exc() 
-            return None 
-       
-    @property
-    def normals_ceiling(self) -> List[Tuple[int, int, int]]:
-        """
-        Property
-        Returns the list of point normals from each vertx.
-        Returns None on failure.
-        """
-        try:
-            return [vertex.normal for vertex in self.__vertices_ceiling]
-        except Exception:
-            traceback.print_exc() 
-            return None         
-
-    @property
-    def normal_floor(self) -> Tuple[int, int, int]:
-        """
-        Property
-        Returns the surface normal of the floor.
-        Returns None on failure.
-        """
-        try:
-            normals = [vertex.normal_array for vertex in self.__vertices_floor]
-            return self.__aecGeometry.getNormalSurface(normals)
-        except Exception:
-            traceback.print_exc() 
-            return None      
-
-    @property
-    def normals_floor(self) -> List[array]:
-        """
-        Property
-        Returns the list of point normals from each vertex.
-        Returns None on failure.
-        """
-        try:
-            return [vertex.normal for vertex in self.__vertices_floor]
-        except Exception:
-            traceback.print_exc() 
-            return None
-
-    @property
-    def normal_sides(self) -> List[array]:
-        """
-        Property
-        Returns the list of surface normals from each side.
-        Returns None on failure.
-        """
-        try:
-            norm_sides = []
-            for side in self.normals_sides: 
-                norm_sides.append(self.__aecGeometry.getNormalSurface(side))
-            return norm_sides
-        except Exception:
-            traceback.print_exc() 
-            return None   
+            return None  
         
     @property
-    def normals_sides(self) -> List[List[array]]:
+    def side_normals(self) -> List[Tuple[float, float, float]]:
         """
         Property
         Returns the list of surface normals from each side.
         Returns None on failure.
         """
         try:
-            norm_sides = []
-            for side in self.__vertices_sides:
-                norm_sides.append(
-                [
-                    side.SW.normal,
-                    side.SE.normal,
-                    side.NE.normal,
-                    side.NW.normal,
-                ])
-            return norm_sides
+            side_normals = []
+            for side in self.__sides:
+                side_normals.append(side.normal)
+            return side_normals
         except Exception:
             traceback.print_exc() 
             return None          
 
     @property
-    def points_sides(self) -> List[aecGeometry.quad_points]:
+    def side_points(self) -> List[aecGeometry.quad_points]:
         """
         Property
         Returns a list of quad structures of 
@@ -603,16 +459,7 @@ class aecSpace:
         Returns None on failure.
         """
         try:
-            side_points = []
-            index = 0
-            for vtx in self.__vertices_sides:
-               side_points.append(aecGeometry.quad_points(ID = index,
-                                                          SW = vtx.SW.point,
-                                                          SE = vtx.SE.point,
-                                                          NE = vtx.NE.point,
-                                                          NW = vtx.NW.point))
-               index += 1
-            return side_points
+            return self.__sides
         except Exception:
             traceback.print_exc() 
             return None            
@@ -885,7 +732,6 @@ class aecSpace:
             if not self.floor.moveBy(x, y): raise Exception
             self.level += z            
             self.__setBoundary(self.floor.points)
-                        
             return self.__boundarySet
         except Exception:
             self.__setBoundary(points)

@@ -359,28 +359,27 @@ class aecGeometry:
         Returns the normal from three points.
         """
         try:
-            def cross(a, b):
-                c = [a[1]*b[2] - a[2]*b[1],
-                     a[2]*b[0] - a[0]*b[2],
-                     a[0]*b[1] - a[1]*b[0]]
-                return c            
-            a = nxtPoint.xyz   
-            b = point.xyz            
-            c = prePoint.xyz
-            v1l = math.sqrt(math.pow(b[0] - a[0], 2) + math.pow(b[1] - a[1],2) + math.pow(b[2] - a[2], 2))
-            v2l = math.sqrt(math.pow(c[0] - b[0], 2) + math.pow(c[1] - b[1],2) + math.pow(c[2] - b[2], 2))
-            v1 = [(b[0] - a[0])/v1l, (b[1] - a[1])/v1l, (b[2] - a[2])/v1l]
-            v2 = [(c[0] - b[0])/v2l, (c[1] - b[1])/v2l, (c[2] - b[2])/v2l]            
-            cp = cross(v1, v2)
-            cp = tuple([cp[0] + 0.0, cp[1] + 0.0, cp[2] + 0.0])
-            return cp
+#            def cross(a, b):
+#                c = [a[1]*b[2] - a[2]*b[1],
+#                     a[2]*b[0] - a[0]*b[2],
+#                     a[0]*b[1] - a[1]*b[0]]
+#                return c            
+#            a = nxtPoint.xyz   
+#            b = point.xyz            
+#            c = prePoint.xyz
+#            v1l = math.sqrt(math.pow(b[0] - a[0], 2) + math.pow(b[1] - a[1],2) + math.pow(b[2] - a[2], 2))
+#            v2l = math.sqrt(math.pow(c[0] - b[0], 2) + math.pow(c[1] - b[1],2) + math.pow(c[2] - b[2], 2))
+#            v1 = [(b[0] - a[0])/v1l, (b[1] - a[1])/v1l, (b[2] - a[2])/v1l]
+#            v2 = [(c[0] - b[0])/v2l, (c[1] - b[1])/v2l, (c[2] - b[2])/v2l]            
+#            cp = cross(v1, v2)
+#            cp = tuple([cp[0] + 0.0, cp[1] + 0.0, cp[2] + 0.0])
+#            return cp
             
-#            preVector = prePoint.xyz_array - point.xyz_array
-#            nxtVector = nxtPoint.xyz_array - point.xyz_array
-#            preNormal = numpy.cross(preVector, nxtVector)
-#            normal = preNormal / (math.sqrt(sum(preNormal**2)))
-#
-#            return tuple(normal)
+            preVector = prePoint.xyz_array - point.xyz_array
+            nxtVector = nxtPoint.xyz_array - point.xyz_array
+            preNormal = numpy.cross(preVector, nxtVector)
+            normal = preNormal / (math.sqrt(sum(preNormal**2)))
+            return tuple(normal)
         except Exception:
             traceback.print_exc()
             return None

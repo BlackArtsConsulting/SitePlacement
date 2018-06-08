@@ -18,9 +18,9 @@
     },
     "height": {
       "description": "Building floor height.",
-      "max": 40,
+      "max": 30,
       "min": 20,
-      "step": 10,
+      "step": 5,
       "type": "number"    
     },    
     "rotation": {

@@ -32,7 +32,7 @@ class aecSpacer:
         try:
             spcProps = space.copy_properties
             newSpace = aecSpace()
-            newSpace.boundary = spcProps['boundary']            
+            newSpace.points_floor = spcProps['boundary']            
             newSpace.color = spcProps['color']
             newSpace.height = spcProps['height']
             newSpace.level = spcProps['level']
@@ -75,7 +75,7 @@ class aecSpacer:
         try:
             if shape.area > border.area: return False
             tstShape = self.copy(shape)
-            comLine = border.floor.compassLine(orient)
+            comLine = border.compassLine(orient)
             level = border.level
             within = False
             x = 0
@@ -102,10 +102,10 @@ class aecSpacer:
         Returns False on failure.
         """
         try:
-            if shape.floor.area > border.floor.area: return False
+            if shape.area > border.area: return False
             level = border.level
-            xAxis = border.floor.axis_x
-            yAxis = border.floor.axis_y        
+            xAxis = border.axis_x
+            yAxis = border.axis_y        
             lowX = xAxis[0].x
             topX = xAxis[1].x
             lowY = yAxis[0].y
@@ -117,11 +117,11 @@ class aecSpacer:
                 xCoord = uniform(lowX, topX)
                 yCoord = uniform(lowY, topY)
                 bndPnt = aecPoint(xCoord, yCoord, level)
-                tstShape.moveTo(tstShape.floor.centroid, bndPnt)
-                within = border.floor.polygon.contains(tstShape.floor.polygon)
+                tstShape.moveTo(tstShape.centroid_floor, bndPnt)
+                within = border.polygon.contains(tstShape.polygon)
                 x += 1
             if not within: return False
-            shape.moveTo(shape.floor.centroid, bndPnt)
+            shape.moveTo(shape.centroid_floor, bndPnt)
             return True
         except Exception:
             traceback.print_exc()
@@ -168,7 +168,7 @@ class aecSpacer:
         Returns None on failure.
         """
         try:
-            spcArea = space.floor.area
+            spcArea = space.area
             if spcArea >= area: return []
             copies = int(area / spcArea)
             return self.stack(space, copies, plenum)

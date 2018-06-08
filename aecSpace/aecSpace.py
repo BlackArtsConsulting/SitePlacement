@@ -1,10 +1,14 @@
+import math
 import traceback
 
-from numpy import array, dot
+from random import uniform
 from typing import List, Tuple
 from uuid import uuid4
 
-from .aecBoundary import aecBoundary
+from shapely import geometry as shapely
+from shapely import affinity as shapelyAffine
+from shapely import ops as shapelyOps
+
 from .aecColor import aecColor
 from .aecGeometry import aecGeometry
 from .aecPoint import aecPoint
@@ -24,87 +28,60 @@ class aecSpace:
 
     * Curved boundaries must be represented as a series of straight segments.
     """
-    
-    __slots__ = \
-    [ 
-        '__address',
-        '__boundarySet',
-        '__ceiling',        
-        '__color',  
-        '__floor',
-        '__height',
-        '__ID',
-        '__name',
-        '__sides'
-    ]
-    
     __aecGeometry = aecGeometry()
+    __slots__ = \
+    [
+         '__address',
+         '__color',           
+         '__convex',
+         '__height',
+         '__ID',
+         '__level',
+         '__name',
+         '__points_floor',
+         '__polygon',
+    ]   
 
-    def __init__(self, points: List[aecPoint] = None, height: float = 1):
+    def __init__(self, points: List[aecPoint] = None):
         """
-        INTERNAL
-        Constructor
-        Sets the ID to a new UUID.
-        Sets the initial color randomly.
-        Sets the initial size to a 1 x 1 x 1 cube in the zero quadrant
-        of the Cartesian plane with one corner at the Cartesian origin.
+        Constructor defaults to a 1 x 1 square with an origin at (0, 0, 0).
+        The first delivered point is examined for its z coordinate and all
+        z coordinates are normalized to that value.
         """
         self.__address = (0, 0, 0)
-        self.__boundarySet = False
-        self.__ceiling = aecBoundary()
         self.__color = aecColor()
-        self.__floor = aecBoundary()
-        self.__height = float(height)
+        self.__height = 1.0
         self.__ID = str(uuid4())
-        self.__name = ''        
-        self.__sides = None
+        self.__level = 0.0
+        self.__name = ''
+        self.__points_floor = None
         if not points:
-            points =\
+            points = \
             [
-                aecPoint(0, 0, 0),
-                aecPoint(1, 0, 0),
-                aecPoint(1, 1, 0),
-                aecPoint(0, 1, 0),
+                aecPoint(0, 0), 
+                aecPoint(1, 0), 
+                aecPoint(1, 1), 
+                aecPoint(0, 1)
             ]
-            self.__ceiling.level = 1.0
-            self.__ceiling.normal = (0.0, 0.0, 1.0)
-            self.__floor.level = 0.0
-            self.__floor.normal = (0.0, 0.0, -1.0)
-        self.floor.points = points
-        self.__setBoundary(self.floor.points)       
-  
+        self.__setBoundary(points)
+
     def __setBoundary(self, points: List[aecPoint]) -> bool:
         """
-        INTERNAL
-        Sets the boundaries and vertices for a new set of points.
-        Returns True on success.
-        Returns False on failure.
+        Creates a boundary from a set of counterclockwise points.
         """
         try:
-            self.ceiling.points = points
-            self.floor.points = points
-            flrPoints = self.floor.points            
-            clgPoints = self.ceiling.points
-            sides = []            
-            index = 0
-            length = len(flrPoints)
-            while index < length:
-                indexNxt = (index + 1) % length
-                side_normal = self.__aecGeometry.getNormal(flrPoints[index], 
-                                                           clgPoints[index], 
-                                                           flrPoints[indexNxt])
-                sides.append(self.__aecGeometry.quad_points(ID = index,
-                                                            SW = flrPoints[index],
-                                                            SE = flrPoints[indexNxt],
-                                                            NE = clgPoints[indexNxt],
-                                                            NW = clgPoints[index],
-                                                            normal = side_normal))
-                index += 1
-            self.__sides = sides
-            self.__boundarySet = True
+            prePoints = self.__points_floor
+            points = self.__aecGeometry.rmvColinear(points)
+            if len(points) < 3: raise ValueError('Need at least three non-colinear points')                
+            polygon = shapely.polygon.orient(shapely.Polygon([point.xy for point in points]))
+            if type(polygon) != shapely.polygon.Polygon: raise Exception
+            self.__points_floor = [aecPoint(pnt.x, pnt.y) for pnt in points]
+            self.__polygon = polygon
+            self.__convex = self.__aecGeometry.isConvex(points)
         except Exception:
+            self.__points_floor = prePoints
             traceback.print_exc() 
-            return False  
+            return False                 
 
     @property
     def address(self) -> Tuple[int, int, int]:
@@ -132,7 +109,180 @@ class aecSpace:
             self.__address = value
         except Exception:
             self.__address = address
-            traceback.print_exc()             
+            traceback.print_exc()    
+
+    @property
+    def area(self) -> float:
+        """
+        Returns the area of the boundary.
+        Returns None on failure.
+        """
+        try:
+            return self.__polygon.area
+        except:
+            traceback.print_exc() 
+            return None        
+    
+    @property
+    def axis_major(self) -> List[aecPoint]:
+        """
+        Returns the longer of the two orthogonal bounding box axes as two endpoints.
+        If both axes are the same length, returns the x-axis endpoints.
+        Returns None on failure.
+        """
+        try:
+            box = self.points_box
+            xDelta = abs(box.SE.x - box.SW.x)
+            yDelta = abs(box.NE.y - box.SE.y)   
+            if xDelta >= yDelta: return self.axis_x
+            else: return self.axis_y
+        except:
+            traceback.print_exc() 
+            return None 
+
+    @property
+    def axis_minor(self) -> List[aecPoint]:
+        """
+        Returns the shorter of the two orthogonal bounding box axes as two endpoints.
+        If both axes are the same length, returns the y-axis endpoints.
+        Returns None on failure.
+        """
+        try:
+            box = self.points_box
+            xDelta = abs(box.SE.x - box.SW.x)
+            yDelta = abs(box.NE.y - box.SE.y)   
+            if xDelta < yDelta: return self.axis_x
+            else: return self.axis_y
+        except:
+            traceback.print_exc() 
+            return None             
+
+    @property
+    def axis_x(self) -> List[aecPoint]:
+        """
+        Returns the central x-axis of the bounding box as two endpoints.
+        Rerurns None on failure.
+        """
+        try:
+            box = self.points_box
+            return [self.__aecGeometry.getMidpoint(box.SW, box.NW),
+                    self.__aecGeometry.getMidpoint(box.SE, box.NE)]
+        except:
+            traceback.print_exc() 
+            return None 
+
+    @property
+    def axis_y(self) -> List[aecPoint]:
+        """
+        Returns the central y-axis of the bounding box as two endpoints.
+        Rerurns None on failure.
+        """
+        try:
+            box = self.points_box
+            return [self.__aecGeometry.getMidpoint(box.SW, box.SE),
+                    self.__aecGeometry.getMidpoint(box.NW, box.NE)]
+        except:
+            traceback.print_exc() 
+            return None              
+    
+    @property
+    def box(self) -> shapely.Polygon:
+        """
+        Returns a polygon of the boundary's bounding box.
+        Returns None on failure.        
+        """
+        try:
+            bounds = self.__polygon.bounds
+            return shapely.polygon.orient(
+                   shapely.Polygon(
+                   [
+                       (bounds[0], bounds[1]),
+                       (bounds[2], bounds[1]),
+                       (bounds[2], bounds[3]),
+                       (bounds[0], bounds[3])
+                   ]))
+        except:
+            traceback.print_exc() 
+            return None  
+
+    @property
+    def center_floor(self) -> aecPoint:
+        """
+        Returns the center of the bounding box.
+        Returns None on failure.
+        """
+        try:
+            box_pnts = self.points_box
+            point = self.__aecGeometry.getMidpoint(box_pnts.SW, box_pnts.NE)
+            point.z = self.level
+            return point
+        except:
+            traceback.print_exc() 
+            return None 
+
+    @property
+    def center_space(self) -> aecPoint:
+        """
+        Returns the center of the space determined as the
+        halfway point between the ceiling and floor centers.
+        """
+        try:
+            flrCenter = self.center_floor
+            flrCenter.z = self.boundary.level + (self.height * 0.5)
+        except Exception:
+            traceback.print_exc() 
+            return None     
+
+    @property
+    def centroid_ceiling(self) -> aecPoint:
+        """
+        Returns the centroid of the boundary.
+        Returns None on failure.
+        """
+        try:
+            centroid = self.__polygon.centroid    
+            return aecPoint(centroid.x, centroid.y, self.points_ceiling[0].z)
+        except:
+            traceback.print_exc() 
+            return None 
+
+    @property
+    def centroid_floor(self) -> aecPoint:
+        """
+        Returns the centroid of the boundary.
+        Returns None on failure.
+        """
+        try:
+            centroid = self.__polygon.centroid    
+            return aecPoint(centroid.x, centroid.y, self.points_floor[0].z)
+        except:
+            traceback.print_exc() 
+            return None 
+        
+    @property
+    def centroid_space(self) -> aecPoint:
+        """
+        Returns the centroid of the boundary.
+        Returns None on failure.
+        """
+        try:
+            centroid = self.__polygon.centroid    
+            return aecPoint(centroid.x, centroid.y, (self.points_floor[0].z + (self.height * 0.5)))
+        except:
+            traceback.print_exc() 
+            return None         
+        
+    @property
+    def circumference(self) -> float:
+        """
+        Returns the length of the boundary.
+        Returns None on failure.
+        """
+        try:
+            return self.__polygon.length
+        except:
+            traceback.print_exc() 
+            return None             
 
     @property
     def color(self) -> aecColor:
@@ -192,8 +342,8 @@ class aecSpace:
         try:
             return \
             {
+                'boundary': self.points_floor,                               
                 'color': self.color.color,
-                'boundary': self.floor.points,               
                 'height': self.height,
                 'level': self.level,
                 'name': self.name,
@@ -201,62 +351,20 @@ class aecSpace:
         except Exception:
             traceback.print_exc()
             return None
-    
-    @property
-    def ceiling(self) -> aecBoundary:
-        """
-        Property
-        Returns lower boundary.
-        Returns None on failure.        
-        """
-        try:
-            return self.__ceiling
-        except Exception:
-            traceback.print_exc() 
-            return None           
  
     @property
-    def center(self) -> aecPoint:
-        """
-        Returns the center of the space determined as the
-        halfway point between the ceiling and floor centers.
-        """
-        try:
-            return self.__aecGeometry.getMidpoint(self.ceiling.center, self.floor.center)
-        except Exception:
-            traceback.print_exc() 
-            return None                      
-    
-    @property
-    def floor(self) -> aecBoundary:
+    def convex(self) -> bool:
         """
         Property
-        Returns lower boundary.
+        Returns the convex state of the boundary.
         Returns None on failure.        
         """
         try:
-            return self.__floor
-        except Exception:
+            return self.__convex
+        except:
             traceback.print_exc() 
             return None
- 
-    @floor.setter
-    def boundary(self, value: List[aecPoint]):
-        """
-        Property
-        Sets a new boundary from a list of counterclockwise points.
-        Returns True on success.
-        Returns False on failure.
-        """
-        try:
-            flrPnts = self.floor.points
-            self.__setBoundary(value)
-            if not self.__boundarySet: raise Exception
-        except Exception:
-            self.__setBoundary(flrPnts)
-            traceback.print_exc() 
-            return False 
-          
+
     @property
     def height(self) -> float:
         """
@@ -279,56 +387,48 @@ class aecSpace:
         try:
             preVal = self.__height
             self.__height = float(value)
-            self.__ceiling.level = self.floor.level + self.__height
         except Exception:
             self.__height = preVal
             self.__ceiling.level = self.floor.level + self.__height
-            traceback.print_exc()            
+            traceback.print_exc()   
 
     @property
     def ID(self) -> str:
         """
         Property
-        Returns the height.
-        Returns None on failure.
-        """
+        Returns the UUID.
+        """            
         try:
             return self.__ID
         except Exception:
-            traceback.print_exc() 
+            traceback.print_exc()
             return None
 
     @property
     def level(self) -> float:
         """
         Property
-        Returns the level of the lower boundary.
+        Returns the level of the boundary.
         Returns None on failure.
         """
         try:
-            return self.__floor.level
-        except Exception:
+            return self.__level
+        except:
             traceback.print_exc() 
-            return None
-        
+            return None        
+ 
     @level.setter
     def level(self, value: float):
         """
         Property
-        Sets the level of the lower boundary and changes the level of the 
-        upper boundary to match the current difference in level values.
-        Returns None on failure.
-        """
+        Sets the level of the boundary.
+        """        
         try:
-            level = self.floor.level
-            self.floor.level = float(value)
-            self.ceiling.level = self.floor.level + self.height
-            self.__setBoundary(self.floor.points)
-        except Exception:
-            self.floor.level = level
-            self.ceiling.level = self.floor.level + self.height
+            preVal = self.__level
+            self.__level = float(value)
+        except:
+            self.__level = preVal
             traceback.print_exc() 
-            return None        
 
     @property
     def mesh(self) -> aecGeometry.mesh3D:
@@ -338,16 +438,16 @@ class aecSpace:
         Returns None on failure.
         """
         try:
-            ceiling_mesh = self.ceiling.mesh
+            ceiling_mesh = self.mesh_ceiling
             vertices = ceiling_mesh.vertices
             indices = ceiling_mesh.indices     
             normals = ceiling_mesh.normals
             off = len(vertices)
-            floor_mesh = self.floor.mesh      
-            vertices += floor_mesh.vertices[::-1]
+            floor_mesh = self.mesh_floor
+            vertices += floor_mesh.vertices
             normals += floor_mesh.normals
             indices += [(idx[0] + off, idx[1] + off, idx[2] + off) for idx in floor_mesh.indices[::-1]]            
-            side_meshes = self.side_meshes
+            side_meshes = self.mesh_sides
             for side in side_meshes:
                 off = len(vertices)
                 vertices += side.vertices
@@ -359,7 +459,48 @@ class aecSpace:
         except Exception:
             traceback.print_exc() 
             return None  
-     
+        
+    @property
+    def mesh_ceiling(self) -> aecGeometry.mesh3D:
+        """
+        Property
+        Returns a Delaunay mesh of points and indices.
+        Returns None on failure.
+        """
+        try:
+            mesh2D = self.__aecGeometry.getMesh2D(self.points_ceiling)
+            vertices = mesh2D.vertices
+            normal = self.normal_ceiling
+            normals = []
+            for vertex in vertices: normals.append(normal)
+            return self.__aecGeometry.mesh3D(vertices = mesh2D.vertices,
+                                             indices = mesh2D.indices,
+                                             normals = normals)            
+        except:
+            traceback.print_exc() 
+            return None
+        
+    @property
+    def mesh_floor(self) -> aecGeometry.mesh3D:
+        """
+        Property
+        Returns a Delaunay mesh of points and indices.
+        Returns None on failure.
+        """
+        try:
+            mesh2D = self.__aecGeometry.getMesh2D(self.points_floor)
+            vertices = mesh2D.vertices[::-1]
+            indices = mesh2D.indices[::-1]
+            normal = self.normal_floor
+            normals = []
+            for vertex in vertices: normals.append(normal)
+            return self.__aecGeometry.mesh3D(vertices = vertices,
+                                             indices = indices,
+                                             normals = normals)            
+        except:
+            traceback.print_exc() 
+            return None        
+
     @property
     def mesh_graphic(self) -> aecGeometry.mesh3Dgraphic:
         """
@@ -381,6 +522,32 @@ class aecSpace:
         except Exception:
             traceback.print_exc() 
             return None   
+
+    @property
+    def mesh_sides(self) -> List[aecGeometry.mesh2D]:
+        """
+        Property
+        Returns a mesh of the upper surface.
+        Returns None on failure.
+        """
+        try:
+            sides = self.points_sides
+            normals = self.normal_sides
+            meshes = []
+            index = 0
+            for side in sides:
+               side_vertices = [pnt.xyz for pnt in side]
+               side_indices = [(0, 1, 2), (2, 3, 0)]
+               side_normals = []
+               for pnt in side: side_normals.append(normals[index])
+               meshes.append(aecGeometry.mesh3D(vertices = side_vertices,
+                                                indices = side_indices,
+                                                normals = side_normals))
+               index += 1
+            return meshes
+        except Exception:
+            traceback.print_exc() 
+            return None 
 
     @property
     def name(self) -> str:
@@ -409,60 +576,165 @@ class aecSpace:
             traceback.print_exc() 
 
     @property
-    def side_meshes(self) -> List[aecGeometry.mesh2D]:
+    def normal_ceiling(self) -> Tuple[float, float, float]:
         """
         Property
-        Returns a mesh of the upper surface.
+        Returns the level of the boundary.
         Returns None on failure.
         """
         try:
-            sides = self.side_points
-            normals = self.side_normals
-            meshes = []
-            index = 0
-            for side in sides:
-               side_vertices = [side.SW.xyz, side.SE.xyz, side.NE.xyz, side.NW.xyz]
-               side_indices = [(0, 1, 2), (2, 3, 0)]
-               side_normals = []
-               for vertex in side_vertices: side_normals.append(normals[index])
-               meshes.append(aecGeometry.mesh3D(vertices = side_vertices,
-                                                indices = side_indices,
-                                                normals = side_normals))
-               index += 1
-            return meshes
-        except Exception:
+            return (0.0, 0.0, 1.0)
+        except:
             traceback.print_exc() 
-            return None  
+            return None 
         
     @property
-    def side_normals(self) -> List[Tuple[float, float, float]]:
+    def normal_floor(self) -> Tuple[float, float, float]:
+        """
+        Property
+        Returns the level of the boundary.
+        Returns None on failure.
+        """
+        try:
+            return (0.0, 0.0, -1.0)
+        except:
+            traceback.print_exc() 
+            return None        
+             
+    @property
+    def normal_sides(self) -> List[Tuple[float, float, float]]:
         """
         Property
         Returns the list of surface normals from each side.
         Returns None on failure.
         """
         try:
-            side_normals = []
-            for side in self.__sides:
-                side_normals.append(side.normal)
-            return side_normals
+            normals = []
+            for side in self.points_sides:
+                normals.append(self.__aecGeometry.getNormal(side[0], side[3], side[1]))
+            return normals
         except Exception:
             traceback.print_exc() 
-            return None          
+            return None                  
 
     @property
-    def side_points(self) -> List[aecGeometry.quad_points]:
+    def points_box(self) -> aecGeometry.quad_points:
+        """
+        Returns the aecPoints defining the corners of
+        the bounding box at the boundary's level.
+        Returns None on failure.        
+        """
+        try:
+            bounds = self.__polygon.bounds
+            level = self.__points_floor[0].z
+            return aecGeometry.quad_points(ID = 0,
+                                           SW = aecPoint(bounds[0], bounds[1], level),
+                                           SE = aecPoint(bounds[2], bounds[1], level),
+                                           NE = aecPoint(bounds[2], bounds[3], level),
+                                           NW = aecPoint(bounds[0], bounds[3], level),
+                                           normal = self.normal_floor)
+        except:
+            traceback.print_exc() 
+            return None
+    
+    @property
+    def points_ceiling(self) -> List[aecPoint]:
+        """
+        Returns a ceiling boundary.
+        """
+        try:
+            return [aecPoint(pnt.x, pnt.y, self.level + self.height) 
+                    for pnt in self.points_floor]
+        except Exception:
+            traceback.print_exc()
+            return None
+
+    @property
+    def points_floor(self) -> List[aecPoint]:
         """
         Property
-        Returns a list of quad structures of 
-        four points defining each side.
+        Returns the points defining the boundary as an aecPoint list in a counterclockwise sequence.
         Returns None on failure.
         """
         try:
-            return self.__sides
+            return [aecPoint(pnt.x, pnt.y, self.level) for pnt in self.__points_floor]
+        except:
+            traceback.print_exc() 
+            return None
+
+    @points_floor.setter
+    def points_floor(self, points: List[aecPoint]):
+        """
+        Create a new boundary polygon from the list of points.
+        Colinear points are removed. Fails if a single 
+        non-crossing polygon cannot be contructed.
+        """
+        try:
+            self.__setBoundary(points)
+        except Exception:
+            traceback.print_exc()
+            
+    @property
+    def points_sides(self) -> List[List[aecPoint]]:
+        """
+        Property
+        Returns a list of lists of four points defining each side.
+        Returns None on failure.
+        """
+        try:
+            flrPnts = self.points_floor
+            clgPnts = self.points_ceiling            
+            sides = []
+            index = 0
+            length = len(flrPnts)
+            while index < length:
+                indexNxt = (index + 1) % length
+                sides.append([flrPnts[index], flrPnts[indexNxt], clgPnts[indexNxt], clgPnts[index]])
+                index += 1
+            return sides
         except Exception:
             traceback.print_exc() 
-            return None            
+            return None    
+
+    @property
+    def polygon(self) -> shapely.Polygon:
+        """
+        Returns a polygon representating the boundary.
+        Returns None on failure.        
+        """
+        try:
+            return self.__polygon
+        except:
+            traceback.print_exc() 
+            return None
+
+    @property
+    def size_x(self) -> float:
+        """
+        Property
+        Returns the x-axis size of the bounding box.
+        Returns None on failure.
+        """
+        try:
+            points = self.points_box
+            return abs(points.SE.x - points.SW.x)
+        except:
+            traceback.print_exc() 
+            return None  
+        
+    @property
+    def size_y(self) -> float:
+        """
+        Property
+        Returns the x-axis size of the bounding box.
+        Returns None on failure.
+        """
+        try:
+            points = self.points_box
+            return abs(points.NW.y - points.SW.y)
+        except:
+            traceback.print_exc() 
+            return None               
 
     @property
     def volume(self) -> float:
@@ -472,45 +744,85 @@ class aecSpace:
         Returns None on failure.
         """
         try:
-            return self.__height * self.__floor.area
+            return self.height * self.area
         except Exception:
             traceback.print_exc() 
-            return None
+            return None            
 
-    def addBoundary(self, points: List[aecPoint], restart: bool = False) -> bool:
+
+    def add(self, points: List[aecPoint], restart: bool = False) -> bool:
         """
         If restart is True, constructs a new boundary from the delivered list of points.
         If restart is False, combines the current boundary with boundaries defined by
         the delivered points.
-        Returns True if successful.        
         Returns False if the delivered points do not resolve to a single non-crossing
         polygon and leaves the current boundary unchanged.
+        Returns True if successful.
         """
         try:
-            points = self.__floor.points
-            if not self.__floor.add(points, restart): raise Exception
-            self.__setBoundary(self.__floor.points)
+            if restart: boundaries = []
+            else: boundaries = [self.__polygon]
+            self.__setBoundary(points)
+            if self.__boundarySet:
+                boundaries.append(self.__polygon)
+                boundaries = shapely.MultiPolygon(boundaries)
+                boundary = shapelyOps.unary_union(boundaries)
+                if type(boundary) != shapely.polygon.Polygon: return False
+                points = [aecPoint(pnt[0], pnt[1]) for pnt in list(boundary.exterior.coords)[:-1]]
+                self.__setBoundary(points)
             return self.__boundarySet
         except Exception:
-            self.__setBoundary(points)
             traceback.print_exc()
             return False
 
-    def enclosesBoundary(self, boundary: aecBoundary) -> bool:
+    def compassLine(self, orient: int = aecGeometry.N) -> aecPoint:
         """
-        Returns True if the delivered boundary falls within the space,
-        respecting the boundary and level of the space relative to
-        point positions, returning False if the points fall outside
-        the space.
+        Returns a point on the bounding box aligned 
+        with one of 16 cardinal divisions on the box.
         Returns None on failure.
         """
         try:
-            return self.__floor.containsShape(boundary.points) and \
-                   boundary.level >= self.level
+            return aecGeometry.getCompassLine(self.points_box, orient)
         except Exception:
             traceback.print_exc()
-            return None   
+            return None 
 
+    def compassPoint(self, orient: int = aecGeometry.N) -> aecPoint:
+        """
+        Returns a point on the bounding box aligned 
+        with one of 16 cardinal divisions on the box.
+        Returns None on failure.
+        """
+        try:
+            return aecGeometry.getCompassPoint(self.points_box, orient)
+        except Exception:
+            traceback.print_exc()
+            return None         
+
+    def containsPoint(self, point: aecPoint) -> bool:
+        """
+        Returns True if the boundary contains the point on the shared zero plane.
+        Returns None on failure.
+        """
+        try:
+            return self.__polygon.contains(shapely.Point(point.x, point.y))
+        except Exception:
+            traceback.print_exc()
+            return None
+
+    def containsShape(self, points: List[aecPoint]) -> bool:
+        """
+        Returns True if the boundary wholly contains the shape on the shared zero plane.
+        Returns None on failure.
+        """
+        try:
+            shape_points = [pnt.xy for pnt in points]
+            shape = shapely.polygon.orient(shapely.Polygon(shape_points))
+            return self.__polygon.contains(shape)
+        except Exception:
+            traceback.print_exc()
+            return None
+        
     def enclosesPoint(self, point: aecPoint) -> bool:
         """
         Returns True if the delivered point falls within the space,
@@ -527,67 +839,74 @@ class aecSpace:
             traceback.print_exc()
             return None
         
-    def enclosesSpace(self, boundary: aecBoundary, height: float) -> bool:
-        """
-        Returns True if the delivered boundary and height fall within the space,
-        respecting the boundary, level, and height of the space relative
-        to the point positions, returning False if the points fall outside
-        the space.
-        Returns None on failure.
-        """
-        try:
-            return self.__floor.containsShape(boundary.points) and \
-                   boundary.level >= self.level and \
-                   height <= self.height
-        except Exception:
-            traceback.print_exc()
-            return None           
+#    def enclosesSpace(self, boundary: aecSpace, height: float) -> bool:
+#        """
+#        Returns True if the delivered boundary and height fall within the space,
+#        respecting the boundary, level, and height of the space relative
+#        to the point positions, returning False if the points fall outside
+#        the space.
+#        Returns None on failure.
+#        """
+#        try:
+#            return self.__floor.containsShape(boundary.points) and \
+#                   boundary.level >= self.level and \
+#                   height <= self.height
+#        except Exception:
+#            traceback.print_exc()
+#            return None           
 
-    def fitWithin(self, points: List[aecPoint] = None) -> bool:
-        """
-        Moves the space by the delivered x, y, and z displacements.
-        Returns True on success.
-        Returns False on failure.
-        """
-        try:
-            points = self.__floor.points
-            if not self.__floor.fitWithin(points): raise Exception
-            self.__setBoundary(self.__floor.points)
-            return self.__boundarySet
-        except Exception:
-            self.__setBoundary(points)
-            traceback.print_exc()
-            return False
+#    def fitWithin(self, points: List[aecPoint] = None) -> bool:
+#        """
+#        Moves the space by the delivered x, y, and z displacements.
+#        Returns True on success.
+#        Returns False on failure.
+#        """
+#        try:
+#            prePoints = self.__floor.points
+#            if not self.__floor.fitWithin(points): raise Exception
+#            self.__setBoundary(self.__floor.points)
+#            return self.__setBoundary
+#        except Exception:
+#            self.__setBoundary(prePoints)
+#            traceback.print_exc()
+#            return False
 
-    def makeBox(self, origin: aecPoint, xDist: float = 1, yDist: float = 1, zDist: float = 1) -> bool:
+#    def fitWithin(self, points: List[aecPoint]):
+#        """
+#        If the boundary is not wholly within the delivered perimeter as
+#        described in a list of points, the boundary reconfigures to fit
+#        within the delivered perimeter.
+#        Returns True on success.
+#        Returns None on failure.
+#        """
+#        try:
+#            intersect = self.__aecGeometry.getIntersect(self.points, points)
+#            if intersect: self.__setBoundary(intersect)
+#            return self.__boundarySet
+#        except Exception:
+#            traceback.print_exc()
+#            return None
+    
+    def makeBox(self, origin: aecPoint, 
+                      xSize: float = 1.0, ySize: float = 1.0, zSize: float = 1.0) -> bool:
         """
-        Creates a rectangular space constructed from an
-        origin point and a diagonally opposite point.
-        Returns True on success.
-        Returns False on failure.
+        Creates a rectangular boundary from two diagonal points.
         """
         try:
-            points = self.__floor.points
-            level = self.level
-            height = self.height
-            self.level = origin.z
-            self.height = zDist
-            if not self.__floor.makeBox(origin, xDist, yDist): raise Exception
-            self.__setBoundary(self.__floor.points)
-            return self.__boundarySet
+            return self.__setBoundary([aecPoint(origin.x, origin.y),
+                                       aecPoint(origin.x + xSize, origin.y),
+                                       aecPoint(origin.x + xSize, origin.y + ySize),
+                                       aecPoint(origin.x, origin.y + ySize)])
         except Exception:
-            self.__setBoundary(points)
-            self.level = level
-            self.height = height            
             traceback.print_exc()
-            return False
+            return False    
 
     def makeCross(self, origin: aecPoint = aecPoint(0, 0, 0), 
                         xSize: float = 1, ySize: float = 1,
                         xWidth: float = 0.33333333, yDepth: float = 0.33333333,
                         xAxis: float = 0.5, yAxis: float = 0.5) -> bool:
         """
-        Constructs a cross-shaped space within the box defined by the origin and xy deltas.
+        Constructs a cross-shaped boundary within the box defined by the origin and xy deltas.
         xWidth and yDepth are percentages of overall x-axis and y-axis distances that
         determine the width of each cross arm.
         xAxis and yAxis are percentages of overall x-axis and y-axis distances that
@@ -596,42 +915,54 @@ class aecSpace:
         Returns False on failure.
         """
         try:
-            if self.floor.makeCross(origin, xSize, ySize, xWidth, yDepth, xAxis, yAxis):
-                self.__setBoundary(self.floor.points)            
+            xWidth = self.__aecValid.validPercent(xWidth) * xSize
+            yDepth = self.__aecValid.validPercent(yDepth) * ySize
+            xAxis = self.__aecValid.validPercent(xAxis) * xSize
+            yAxis = self.__aecValid.validPercent(yAxis) * ySize
+            xPnt = aecPoint(origin.x + (yAxis - (xWidth * 0.5)), origin.y)
+            yPnt = aecPoint(origin.x, origin.y + (xAxis - (yDepth * 0.5)))
+            self.makeBox(xPnt, xWidth, ySize)
+            points = self.__aecGeometry.getBoxPoints(yPnt, xSize, yDepth)
+            self.add(points)
             return self.__boundarySet
         except Exception:
             traceback.print_exc()
             return False
 
     def makeCylinder(self, origin: aecPoint = aecPoint(0, 0, 0), radius = 1) -> bool:
+
         """
-        Contructs the space as an approximate circle, setting 
+        Contructs the perimeter as an approximate circle, setting 
         a ratio from the delivered radius to the number of sides.
         Returns True on success.
         Returns False on failure.
         """
         try:
-            if self.floor.makeCylinder(origin, radius):
-                self.__setBoundary(self.floor.points)            
-            return self.__boundarySet
+            if radius < 3: sides = 3
+            else: sides = radius
+            return self.makePolygon(origin, radius, sides)
         except Exception:
             traceback.print_exc()
             return False
-        
+
     def makeH(self, origin: aecPoint = aecPoint(0, 0, 0),
                     xSize: float = 1, ySize: float = 1,
                     xWidth1 = 0.33333333, xWidth2= 0.33333333, yDepth = 0.33333333) -> bool:
         """
-        Constructs an H-shaped space within the box defined by point and xy deltas.
+        Constructs an H-shaped boundary within the box defined by point and xy deltas.
         xWidth1, xWidth2, and yDepth are percentages of overall x-axis and y-axis distances that
         determine the width of each vertical and cross bar, respectively.
         Returns True on success.
         Returns False on failure.
         """
-        try:            
-            if self.floor.makeH(origin, xSize, ySize, xWidth1, xWidth2, yDepth):
-                self.__setBoundary(self.floor.points)            
-            return self.__boundarySet
+        try:
+            if self.makeCross(origin, xSize, ySize, xWidth1, yDepth, yAxis = (xWidth1 * 0.5)):
+                xPoint = aecPoint(origin.x + (xSize - xWidth2), origin.y)
+                points = \
+                self.__aecGeometry.getBoxPoints(xPoint, xWidth2 * xSize, ySize)
+                self.add(points)
+                return self.__boundarySet
+            return False
         except Exception:
             traceback.print_exc()
             return False
@@ -640,49 +971,57 @@ class aecSpace:
                     xSize: float = 1, ySize: float = 1,
                     xWidth = 0.33333333, yDepth = 0.33333333) -> bool:
         """
-        Constructs a L-shaped space within the box defined by point and xy deltas.
+        Constructs a L-shaped boundary within the box defined by point and xy deltas.
         xWidth and yDepth are percentages of overall x-axis and y-axis distances
         that determine the width of each bar.
         Returns True on success.
         Returns False on failure.
         """
         try:
-            if self.floor.makeL(origin, xSize, ySize, xWidth, yDepth):
-                self.__setBoundary(self.floor.points)            
-            return self.__boundarySet
+            return self.makeCross(origin, xSize, ySize, xWidth, yDepth, xWidth * 0.5, yDepth * 0.5)
         except Exception:
             traceback.print_exc()
             return False
-        
+
     def makePolygon(self, origin: aecPoint = aecPoint(0, 0, 0), radius = 1, sides = 3) -> bool:
         """
-        Constructs the space as a regular polygon centered on the delivered
+        Constructs the boundary as a regular polygon centered on the delivered
         origin point with the first vertex at the maximum y-coordinate.
         Returns True on success.
         Returns False on failure.
         """
         try:
-            if self.floor.makePolygon(origin, radius, sides):
-                self.__setBoundary(self.floor.points)            
-            return self.__boundarySet
+            radius = abs(radius)
+            if radius == 0: return False
+            sides = int(abs(sides))
+            if sides < 3: sides = 3
+            angle = math.pi * 0.5
+            incAngle = (math.pi * 2) / sides
+            points = []
+            count = 0
+            while count < sides:
+                x = origin.x + (radius * math.cos(angle))
+                y = origin.y + (radius * math.sin(angle))
+                points.append(aecPoint(x, y))
+                angle += incAngle
+                count += 1
+            return self.__setBoundary(points)
         except Exception:
             traceback.print_exc()
-            return False       
-        
+            return False
+ 
     def makeT(self, origin = aecPoint(0, 0, 0), 
                     xSize: float = 1, ySize: float = 1,
                     xWidth = 0.33333333, yDepth = 0.33333333) -> bool:
         """
-        Constructs a T-shaped space within the box defined by point and xy deltas.
+        Constructs a T-shaped boundary within the box defined by point and xy deltas.
         xWidth and yDepth are percentages of overall x-axis and y-axis distances that
         determine the width of the vertical and horizonatl bars, respectively.
         Returns True on success.
         Returns False on failure.
-        """        
+        """
         try:
-            if self.floor.makeT(origin, xSize, ySize, xWidth, yDepth):
-                self.__setBoundary(self.floor.points)            
-            return self.__boundarySet
+            return self.makeCross(origin, xSize, ySize, xWidth, yDepth, xAxis = (1 - (yDepth * 0.5)))
         except Exception:
             traceback.print_exc()
             return False
@@ -698,110 +1037,140 @@ class aecSpace:
         Returns False on failure.
         """
         try:
-            if self.floor.makeU(origin, xSize, ySize, xWidth1, xWidth2, yDepth):
-                self.__setBoundary(self.floor.points)            
-            return self.__boundarySet
+            if self.makeL(origin, xSize, ySize, xWidth1, yDepth):
+                xWidth = xWidth2 * xSize
+                xPoint = aecPoint(origin.x + (xSize - xWidth), origin.y)
+                points = self.__aecGeometry.getBoxPoints(xPoint, xWidth, ySize)
+                self.add(points)
+                return self.__boundarySet
+            return False
         except Exception:
             traceback.print_exc()
-            return False       
-   
+            return False        
+    
     def mirror(self, points: List[aecPoint] = None) -> bool:
         """
-        Moves the space by the delivered x, y, and z displacements.
+        Mirrors the space orthogonally around the specified line as defined
+        by two points, or by default around the major orthogonal axis.
         Returns True on success.
         Returns False on failure.
         """
         try:
-            points = self.floor.points
-            if not self.floor.mirror(points): raise Exception
-            self.__setBoundary(self.floor.points)
+            if not points: points = self.axis_major
+            newPoints = self.__aecGeometry.mirrorPoints2D(self.points, points[0], points[1])
+            if not newPoints: return False
+            self.__setBoundary(newPoints)
             return self.__boundarySet
         except Exception:
-            self.__setBoundary(points)
             traceback.print_exc()
-            return False         
+            return False
 
     def moveBy(self, x: float = 0, y: float = 0, z: float = 0) -> bool:
         """
-        Moves the space by the delivered x, y, and z displacements.
+        Moves the boundary by the delivered x, y, and z displacements.
         Returns True on success.
         Returns False on failure.
         """
         try:
-            points = self.floor.points
-            if not self.floor.moveBy(x, y): raise Exception
-            self.level += z            
-            self.__setBoundary(self.floor.points)
-            return self.__boundarySet
+            points = [aecPoint(pnt.x + x, pnt.y + y, pnt.z + z) for pnt in self.points_floor]
+            return self.__setBoundary(points)
         except Exception:
-            self.__setBoundary(points)
             traceback.print_exc()
-            return False  
+            return False
 
     def moveTo(self, fromPnt: aecPoint, toPnt: aecPoint) -> bool:
         """
-        Attempts to move the space by constructing a vector between the "from" and "to" points.
+        Attempts to move the boundary by constructing a vector between the "from" and "to" points.
         Returns True on success.
         Returns False on failure.
         """
         try:
-            points = self.floor.points
-            if not self.floor.moveTo(fromPnt, toPnt): raise Exception
-            self.__setBoundary(self.floor.points)
-            return self.__boundarySet
+            x = toPnt.x - fromPnt.x
+            y = toPnt.y - fromPnt.y
+            z = toPnt.z - fromPnt.z
+            return self.moveBy(x, y, z)
         except Exception:
-            self.__setBoundary(points)
+            traceback.print_exc()
+            return False            
+
+    def pointWithin(self) -> aecPoint:
+        """
+        Returns a random point within the boundary.
+        Returns None if no point can be found or on failure.
+        """
+        try:
+            box_pnts = self.points_box
+            lowX = box_pnts.SW.x
+            uppX = box_pnts.SE.x
+            lowY = box_pnts.SW.y
+            uppY = box_pnts.NW.y
+            inPoint = False
+            while not inPoint:
+                xCoord = uniform(lowX, uppX)
+                yCoord = uniform(lowY, uppY)
+                inPoint = self.polygon.contains(shapely.Point(xCoord, yCoord))
+            return aecPoint(xCoord, yCoord)
+        except Exception:
+            traceback.print_exc()
+            return None
+
+    def rotate(self, angle: float = 180, pivot: aecPoint = None) -> bool:
+        """
+        Rotates the space counterclockwise around the 2D pivot point
+        by the delivered rotation in degrees.
+        If no pivot point is provided, the space will rotate around its centroid.
+        Returns True on success.
+        Returns False on failure.
+        """
+        try:
+            angle = float(angle)
+            if not pivot: 
+                centroid = self.centroid_floor
+                pivot = (centroid.x, centroid.y)
+            polygon = shapelyAffine.rotate(self.__polygon, angle, pivot)
+            if type(polygon) != shapely.polygon.Polygon: return False
+            self.__polygon = polygon
+            points = [aecPoint(pnt[0], pnt[1]) for pnt in polygon.exterior.coords[:-1]]
+            return self.__setBoundary(points)
+        except Exception:
             traceback.print_exc()
             return False    
-
-    def rotate(self, angle: float, point: aecPoint = None):
+      
+    def scale(self, x: float = 1, y: float = 1, z: float = 1, point: aecPoint = None) -> bool:
         """
-        Rotates the space by the delivered angle in degrees.
-        If no point is provided, the space will scale from its centroid.
+        Scales the boundary by a vector from the delivered point.
+        If no point is provided, the boundary will scale from its centroid.
         Returns True on success.
         Returns False on failure.
         """
         try:
-            points = self.__floor.points
-            if not self.__floor.rotate(angle, point): raise Exception
-            self.__setBoundary(self.__floor.points)
-            return self.__boundarySet
+            points = self.points_floor
+            if not point:
+                centroid = self.centroid
+                point = (centroid.x, centroid.y)   
+            polygon = shapelyAffine.scale(self.polygon, x, y, 1, point)
+            if type(polygon) != shapely.polygon.Polygon: return False
+            points = [aecPoint(pnt[0], pnt[1]) for pnt in polygon.exterior.coords[:-1]] 
+            self.height *= float(z)
+            return self.__setBoundary(points)
         except Exception:
             self.__setBoundary(points)
             traceback.print_exc()
-            return False      
-        
-    def scale(self, x: float = 1, y: float = 1, z: float = 1, point: aecPoint = None):
-        """
-        Scales the space by the delivered x, y, and z factors.
-        If no point is provided, the space will scale from its centroid.
-        Returns True on success.
-        Returns False on failure.
-        """
-        try:
-            points = self.__floor.points
-            if not self.__floor.scale(x, y, point): raise Exception
-            self.__height *= float(z)
-            self.__setBoundary(self.__floor.points)
-            return self.__boundarySet
-        except Exception:
-            self.__setBoundary(points)
-            traceback.print_exc()
-            return False       
+            return False        
         
     def wrap(self, points: List[aecPoint]) -> bool:
         """
-        Sets the space to a convex hull derived
-        from the delivered list of points.
+        Sets the boundary to a convex hull
+        derived from the delivered list of points.
         Returns True if successful.
         Returns False on failure.
         """
         try:
-            points = self.__floor.points
-            if not self.__floor.wrap(points): raise Exception
-            self.__setBoundary(self.__floor.points)
+            conHull = self.__aecGeometry.getConvexHull(points)
+            if conHull: self.__setBoundary(conHull)
             return self.__boundarySet
         except Exception:
-            self.__setBoundary(points)
             traceback.print_exc()
-            return False  
+            return False       
+        
+        

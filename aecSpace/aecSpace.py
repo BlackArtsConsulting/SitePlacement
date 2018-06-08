@@ -75,7 +75,7 @@ class aecSpace:
             if len(points) < 3: raise ValueError('Need at least three non-colinear points')                
             polygon = shapely.polygon.orient(shapely.Polygon([point.xy for point in points]))
             if type(polygon) != shapely.polygon.Polygon: raise Exception
-            self.__points_floor = [aecPoint(pnt.x, pnt.y) for pnt in points]
+            self.__points_floor =  points = [aecPoint(pnt[0], pnt[1]) for pnt in polygon.exterior.coords[:-1]] 
             self.__polygon = polygon
             self.__convex = self.__aecGeometry.isConvex(points)
         except Exception:

@@ -1072,7 +1072,8 @@ class aecSpace:
         Returns False on failure.
         """
         try:
-            points = [aecPoint(pnt.x + x, pnt.y + y, pnt.z + z) for pnt in self.points_floor]
+            points = [aecPoint(pnt.x + x, pnt.y + y) for pnt in self.points_floor]
+            self.level += z
             return self.__setBoundary(points)
         except Exception:
             traceback.print_exc()

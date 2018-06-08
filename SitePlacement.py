@@ -68,11 +68,11 @@ def sitePlacement(length: float, width: float, height: float,
     return {"model": model.save_base64(), 'computed':{'floors':floors, 'area':area}}   
 #    model.save_glb('C:\\Users\\Anthony\\Dropbox\\Business\\BlackArts\\Development\\GitHub\\SitePlacement\\model.glb')
 #
-#sitePlacement(length = random.uniform(200, 300), 
-#              width = random.uniform(100, 300), 
+#sitePlacement(length = random.uniform(200, 400), 
+#              width = random.uniform(200, 300), 
 #              height = random.uniform(20, 40),
 #              rotation = random.uniform(5, 355), 
-#              area = random.uniform(100000, 200000))
+#              area = random.uniform(80000, 150000))
 
 
 

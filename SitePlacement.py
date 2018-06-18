@@ -65,14 +65,14 @@ def sitePlacement(length: float, width: float, height: float,
         if colorIndex == 1: color = colorOrange
         if colorIndex == 2: color = colorYellow      
         model.add_triangle_mesh(spaceMesh.vertices, spaceMesh.normals, spaceMesh.indices, color)   
-    return {"model": model.save_base64(), 'computed':{'floors':floors, 'area':area}}   
-#    model.save_glb('C:\\Users\\Anthony\\Dropbox\\Business\\BlackArts\\Development\\GitHub\\SitePlacement\\model.glb')
-#
-#sitePlacement(length = random.uniform(200, 400), 
-#              width = random.uniform(200, 300), 
-#              height = random.uniform(20, 40),
-#              rotation = random.uniform(5, 355), 
-#              area = random.uniform(80000, 150000))
+#    return {"model": model.save_base64(), 'computed':{'floors':floors, 'area':area}}   
+    model.save_glb('C:\\Users\\Anthony\\Dropbox\\Business\\BlackArts\\Development\\GitHub\\SitePlacement\\model.glb')
+
+sitePlacement(length = random.uniform(200, 400), 
+              width = random.uniform(200, 300), 
+              height = random.uniform(20, 40),
+              rotation = random.uniform(5, 355), 
+              area = random.uniform(80000, 150000))
 
 
 

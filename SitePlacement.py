@@ -3,6 +3,7 @@ import random
 from aecSpace.aecColor import aecColor
 from aecSpace.aecPoint import aecPoint
 from aecSpace.aecSpace import aecSpace
+from aecSpace.aecShaper import aecShaper
 from aecSpace.aecSpacer import aecSpacer
 
 from hypar import glTF
@@ -25,7 +26,9 @@ def makeBuilding(site: aecSpace, length: float, width: float, height: float,
                                  rotation: float, area: float):
     spacer = aecSpacer()
     building = aecSpace()
-    building.makeBox(aecPoint(0, 0, 0), xSize = length, ySize = width, zSize = height)
+    shaper = aecShaper()
+    points = shaper.makeBox(aecPoint(0, 0, 0), xSize = length, ySize = width)
+    building.boundary = points
     building.rotate(rotation)
     if spacer.placeWithin(building, site):
         building.level = 0
@@ -36,7 +39,7 @@ def makeBuilding(site: aecSpace, length: float, width: float, height: float,
     
 def makeSite():
     site = aecSpace()
-    site.points_floor = [aecPoint(coord[0], coord[1]) for coord in siteBoundary["coordinates"]]
+    site.boundary = [aecPoint(coord[0], coord[1]) for coord in siteBoundary["coordinates"]]
     site.color = aecColor.green
     site.level = -20
     site.height = 20 
@@ -65,14 +68,14 @@ def sitePlacement(length: float, width: float, height: float,
         if colorIndex == 1: color = colorOrange
         if colorIndex == 2: color = colorYellow      
         model.add_triangle_mesh(spaceMesh.vertices, spaceMesh.normals, spaceMesh.indices, color)   
-#    return {"model": model.save_base64(), 'computed':{'floors':floors, 'area':area}}   
-    model.save_glb('C:\\Users\\Anthony\\Dropbox\\Business\\BlackArts\\Development\\GitHub\\SitePlacement\\model.glb')
-
-sitePlacement(length = random.uniform(200, 400), 
-              width = random.uniform(200, 300), 
-              height = random.uniform(20, 40),
-              rotation = random.uniform(5, 355), 
-              area = random.uniform(80000, 150000))
+    return {"model": model.save_base64(), 'computed':{'floors':floors, 'area':area}}   
+#    model.save_glb('model.glb')
+#
+#sitePlacement(length = random.uniform(200, 400), 
+#              width = random.uniform(200, 300), 
+#              height = random.uniform(20, 40),
+#              rotation = random.uniform(5, 355), 
+#              area = random.uniform(80000, 150000))
 
 
 

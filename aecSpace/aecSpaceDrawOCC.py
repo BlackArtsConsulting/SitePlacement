@@ -6,7 +6,6 @@ import OCC.Quantity
 from OCC.gp import gp_Pnt
 from OCC.gp import gp_Vec
 
-#from OCC.Display import OCCViewer
 from OCC.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
 from OCC.BRepBuilderAPI import BRepBuilderAPI_MakeWire
 from OCC.BRepBuilderAPI import BRepBuilderAPI_MakeFace
@@ -17,29 +16,8 @@ aecSpaceDraw accepts lists of aecSpaces or an
 aecSpaceGroup instance to render in pythonOCC.
 """
 
-class aecSpaceDrawOCC:
- 
+class aecSpaceDrawOCC:  
    
-   
-    def __init__(self):
-        """
-        aecSpaceDrawOCC Constructor
-        Creates a new aecErrorCheck object.
-        """
-        pass
-
-    def getType(self):
-        """
-        string getType()
-        Returns a string constant to identify the object type.
-        Returns None on failure.
-        """
-        try:
-            return self.__type
-        except Exception:
-            traceback.print_exc()
-            return None
-
     def makeEdges(self, pointPairs):
         """
         [Topo_DS_Edge,] makeEdges([[gp_Pnt, gp_Pnt],])
@@ -85,7 +63,7 @@ class aecSpaceDrawOCC:
         Returns None on failure.
         """
         try:
-            points = space.floor.points
+            points = space.points_floor
             if not points: return None
             return [gp_Pnt(pnt.x, pnt.y, pnt.z) for pnt in points]
         except Exception:
@@ -102,8 +80,7 @@ class aecSpaceDrawOCC:
         try:
             wire = BRepBuilderAPI_MakeWire(edges[0])
             del edges[0] 
-            for edge in edges:
-                wire.Add(edge)
+            for edge in edges: wire.Add(edge)
             return wire
         except Exception:
             traceback.print_exc()
@@ -117,10 +94,10 @@ class aecSpaceDrawOCC:
         Returns False on failure.
         """
         try:
-            if type(spaces) != list:
-                spaces = spaces.spaces
             if not spaces: return False
-            __display, __start_display, __add_menu, __add_function_to_menu = init_display(size = displaySize)            
+            if type(spaces) != list: spaces = spaces.spaces
+            if not spaces: return False
+            __display, __start_display, __add_menu, __add_function_to_menu = init_display('qt-pyqt5', size = displaySize)            
             for space in spaces:
                 points = self.makePoints(space)
                 if not points: continue
@@ -129,7 +106,8 @@ class aecSpaceDrawOCC:
                 edges = self.makeEdges(pointPairs)
                 if not edges: continue
                 wire = self.makeWire(edges)
-                if not wire: continue
+                if not wire.IsDone: continue
+                #if not wire: continue
                 face = BRepBuilderAPI_MakeFace(wire.Wire())
                 if not face: continue
                 vector = gp_Vec(0, 0, space.height)
@@ -152,6 +130,4 @@ class aecSpaceDrawOCC:
         except Exception:
             traceback.print_exc()
             return False
-
-# end class
 

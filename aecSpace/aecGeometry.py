@@ -11,12 +11,40 @@ from .aecPoint import aecPoint
 
 class aecGeometry:
     
+    # Useful constants
+    
+    pi = 3.141592653589793
+    
     # Defines a series of constants indicating cardinal directions.
     
     N, NNE, NE, ENE, E, ESE, SE, SSE, S, SSW, SW, WSW, W, WNW, NW, NNW = range(0, 16)
        
+    # Defines a data structure of points holding points corresponding to cardinal directions.
+    
+    compass = \
+        NamedTuple(
+        'compass',
+        [
+            ('N', aecPoint),
+            ('NNE', aecPoint),
+            ('NE', aecPoint),
+            ('ENE', aecPoint),
+            ('E', aecPoint),
+            ('ESE', aecPoint),
+            ('SE', aecPoint),
+            ('SSE', aecPoint),
+            ('S', aecPoint),
+            ('SSW', aecPoint),
+            ('SW', aecPoint),
+            ('WSW', aecPoint),
+            ('W', aecPoint),
+            ('WNW', aecPoint),
+            ('NW', aecPoint),
+            ('NNW', aecPoint),            
+        ])
+    
     # Defines a data structure of eight points with locations indicated 
-    # by compass point abbreviations in counterclockwise order for the 
+    # by compass point abbreviations in anticlockwise order for the 
     # (l)ower and (U)pper boundaries.
     
     cube = \
@@ -81,8 +109,18 @@ class aecGeometry:
             ('normals', List[float])           
         ])
     
+    # Defines a list of polygons formed by lists of aecPoints
+    
+    polygons = \
+        NamedTuple(
+        'polygons',
+        [
+            ('points', List[List[aecPoint]]),
+            ('count', int)
+        ])    
+    
     # Defines a data structure of four points with locations indicated
-    # by compass point abbreviations in counterclockwise order with an
+    # by compass point abbreviations in anticlockwise order with an
     # associated normal.
     
     quad_points = \
@@ -109,13 +147,22 @@ class aecGeometry:
             ('exterior', float), 
             ('convex', bool)
         ])
-    
-    def __init__(self):
-        """
-        Constructor
-        """
-        pass 
                 
+    def areAdjacent(self, shapeOne: List[aecPoint], shapeTwo: List[aecPoint]) -> bool:
+        """
+        Determines whether two shapes described by
+        the delivered point lists are adjacent.
+        Returns None if no determination can be made.
+        """
+        try:
+            shapeOne = shapely.polygon.orient(shapely.Polygon([pnt.xy for pnt in shapeOne])).buffer(distance = 10)
+            shapeTwo = shapely.polygon.orient(shapely.Polygon([pnt.xy for pnt in shapeTwo])).buffer(distance = 10)
+            if shapeOne.touches(shapeTwo) or shapeOne.intersects(shapeTwo): return True
+            return False
+        except Exception:
+            traceback.print_exc()
+            return None    
+
     def areColinear(self, points: List[aecPoint]) -> bool:
         """
         Returns True if all delivered points are colinear.
@@ -130,11 +177,11 @@ class aecGeometry:
         except Exception:
             traceback.print_exc()
             return None
-
+    
     def getAngles(self, vtxPoint: aecPoint, prvPoint: aecPoint, nxtPoint: aecPoint) -> vertexAngle:
         """
         Returns whether the delivered point is at a convex or concave angle between
-        the previous and following points in a counterclockwise point sequence.
+        the previous and following points in a anticlockwise point sequence.
         """
         try:
             inVector = (vtxPoint.x - prvPoint.x, vtxPoint.y - prvPoint.y)
@@ -155,7 +202,7 @@ class aecGeometry:
 
     def getBoxPoints(self, origin: aecPoint, xDelta: float, yDelta: float) -> List[aecPoint]:
         """
-        Returns the 3D coordinates of a cube based on diagonally opposite corners.
+        Returns the 2D coordinates of a rectangle derived from diagonally opposite corners.
         Returns None on failure.
         """
         try:
@@ -188,7 +235,7 @@ class aecGeometry:
         """
         Returns a point on the delivered bounding box corresponding to the 
         orientation of 16 compass direction constants defined by aecGeometry.
-        N (north) corresponds to the middle point of maximum y side of the bounding box,
+        N (north) corresponds to the midpoint of the maximum y side of the bounding box,
         with proportionate distances along the axis represented by NNE 
         (3/4 length from minumum X), and NE (bounding box maximum x, maximum y corner).
         Returns None on failure.
@@ -224,15 +271,16 @@ class aecGeometry:
     def getConvexHull(self, points: List[aecPoint]) -> List[aecPoint]:
         """
         Computes the convex hull of a set of 2D points returning the list
-        of outermost points in counter-clockwise order, starting from the
+        of outermost points in anticlockwise order, starting from the
         vertex with the lexicographically smallest coordinates.
         Returns None on failure.
         """
         try:
             if len(points) <= 3: return None
-
-            points = [(float("{:.8f}".format(pnt.x)), float("{:.8f}".format(pnt.y)))
+            points = [(float("{:.8f}".format(pnt.x)),             
+                       float("{:.8f}".format(pnt.y)))
                        for pnt in points]
+            points = sorted(set(points))            
             
             # float cross(float, float, float)
             # Computes the 2D cross product of OA and OB vectors, i.e. z-component
@@ -265,24 +313,23 @@ class aecGeometry:
             traceback.print_exc()
             return None
 
-    def getDifference(self, boundary, shape):
+    def getDifference(self, boundary: List[aecPoint], shape: List[aecPoint]) -> List[List[aecPoint]]:
         """
-        [[(2D point),], [(2D point),]]  getDifference([(2D point),], [(2D point),])
         Returns the points of perimeter(s) not shared between boundary and shape.
         If more than one perimeter is found, the return value is a list of lists of points
         defining each perimeter.
         Returns None if unable to determine the difference perimeter(s).
         """
         try:
-            boundary = shapely.polygon.orient(shapely.Polygon(boundary))
-            shape = shapely.polygon.orient(shapely.Polygon(shape))
+            boundary = shapely.polygon.orient(shapely.Polygon([pnt.xy for pnt in boundary]))
+            shape = shapely.polygon.orient(shapely.Polygon([pnt.xy for pnt in shape]))
             difference = boundary.difference(shape)
             if difference.type == 'MultiPolygon':
                 differs = []
                 for polygon in list(difference.geoms):
-                    differs.append(polygon.exterior.coords[:-1])
+                    differs.append([aecPoint(pnt[0], pnt[1]) for pnt in polygon.exterior.coords[:-1]])
                 return differs
-            return difference.exterior.coords[:-1]
+            return [[aecPoint(pnt[0], pnt[1]) for pnt in difference.exterior.coords[:-1]]]
         except Exception:
             traceback.print_exc() 
             return None        
@@ -351,12 +398,11 @@ class aecGeometry:
             return aecPoint(xCoord, yCoord, zCoord)
         except Exception:
             traceback.print_exc()
-            return None
-                
+            return None              
     
     def getNormal(self, point: aecPoint, prePoint: aecPoint, nxtPoint: aecPoint) -> Tuple[float, float, float]:
         """
-        Returns the normal from three points.
+        Returns the normal from three anticlockwise points.
         """
         try:
             preVector = prePoint.xyz_array - point.xyz_array
@@ -366,11 +412,11 @@ class aecGeometry:
             return tuple(normal)
         except Exception:
             traceback.print_exc()
-            return None
-
+            return None     
+    
     def isConvex(self, points: List[aecPoint]) -> bool:
         """
-        Determines from a set of counterclockwise points 
+        Determines from a set of anticlockwise points 
         whether the implied polygon is convex.
         Returns None on failure.
         """
@@ -387,11 +433,9 @@ class aecGeometry:
         except Exception:
             traceback.print_exc()
             return None          
-        
-    
-    def mirrorPoints2D (self, points: List[aecPoint], mPoint1: aecPoint, mPoint2: aecPoint):
+            
+    def mirrorPoints2D (self, points: List[aecPoint], mPoint1: aecPoint, mPoint2: aecPoint) -> List[aecPoint]:
         """
-        [(2D point),] mirrorPoints2D([(2D point),], [(2D point), (2D point)])
         Accepts a set of points and a mirror axis defined by two 2D points
         and returns a set of points reflected around the mirror axis.
         Returns None on failure.
@@ -433,7 +477,7 @@ class aecGeometry:
         except Exception:
             traceback.print_exc()
             return None
-
+    
     def rmvColinear(self, points: List[aecPoint]) -> List[aecPoint]:
         """
         Returns the delivered list of points with redundundant colinear points removed.
@@ -451,9 +495,18 @@ class aecGeometry:
                     coPoints = points[x:x + 3]
                     x += 1
             points = (sorted(set(points), key = points.index))
-            return [aecPoint(pnt[0], pnt[1],level) for pnt in points]
+            return [aecPoint(pnt[0], pnt[1], level) for pnt in points]
         except Exception:
             traceback.print_exc()
             return None
            
-# end class
+    def toDegrees(self, radians: float = 0):
+        """
+        Returns a conversion of radians to degrees.
+        Returns None on failure.
+        """
+        try:
+            return (radians * (180 / aecGeometry.pi)) % 360
+        except Exception:
+            traceback.print_exc()
+            return None       

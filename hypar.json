@@ -1,36 +1,45 @@
 {
+  "respository_url": "https://github.com/BlackArtsConsulting/SitePlacement",
   "function": "SitePlacement.sitePlacement",
+  "name": "Site Placement.",  
+  "description": "Places buildings of various configurations on site.",
   "runtime": "python3.6",
-  "parameters":{
-    "length": {
+  "parameters":
+  {
+    "length": 
+    {
       "description": "Building length.",
       "max": 400,
       "min": 200,
       "step": 50,
       "type": "number"    
     },
-    "width": {
+    "width": 
+    {
       "description": "Building width.",
       "max": 300,
       "min": 200,
       "step": 50,
       "type": "number"    
     },
-    "height": {
+    "height": 
+    {
       "description": "Building floor height.",
       "max": 30,
       "min": 20,
       "step": 5,
       "type": "number"    
     },    
-    "rotation": {
+    "rotation": 
+    {
       "description": "Building rotation.",
       "max": 180,
       "min": 0,
       "step": 60,
       "type": "number"    
     },
-    "area": {
+    "area": 
+    {
       "description": "Target building area.",
       "max": 150000,
       "min": 80000,
@@ -38,11 +47,14 @@
       "type": "number"    
     }    
   },
-  "returns": {
-    "floors": {
+  "returns": 
+  {
+    "floors": 
+    {
       "description": "The number of floors."
     },
-    "area": {
+    "area": 
+    {
       "description": "The total building area."
     }
   }

@@ -1,5 +1,8 @@
 import numpy
 import traceback
+
+from shapely import affinity as shpAffine
+from shapely import geometry as shpGeom
 from typing import List, Tuple
 from uuid import uuid4
 
@@ -113,7 +116,7 @@ class aecPoint():
     def xy(self) -> Tuple[float, float]:
         """
         Property
-        Returns x and y coordinates as a (x, y) tuple.
+        Returns x and y coordinates.
         """
         try:
             return (self.x, self.y)
@@ -125,7 +128,7 @@ class aecPoint():
     def xy(self, coord: Tuple[float, float]):
         """
         Property
-        Sets the x and y coordinates with an (x, y) tuple.
+        Sets the x and y coordinates.
         """
         try:
             preX = self.x
@@ -200,7 +203,7 @@ class aecPoint():
     def xyz_array(self) -> numpy.array:
         """
         Property
-        Returns the 3D coordinates as a numpY array.
+        Returns the coordinates as a numpy array.
         """
         try:
             return numpy.array(self.xyz)
@@ -212,7 +215,7 @@ class aecPoint():
     def xyz_list(self) -> List[float]:
         """
         Property
-        Returns the 3D coordinates as a list.
+        Returns the coordinates as a list.
         """
         try:
             return list(self.xyz)
@@ -240,3 +243,22 @@ class aecPoint():
             self.z = preZ             
             traceback.print_exc()
             return False
+        
+    def rotate(self, angle: float = 180, point: Tuple[float, float] = (0, 0)) -> bool:
+        """
+        Rotates the space anticlockwise around the 2D pivot point
+        by the delivered rotation in degrees.
+        If no pivot point is provided, the space will rotate around its floor centroid.
+        Returns True on success.
+        Returns False on failure.
+        """
+        try:
+            angle = float(angle)
+            newPoint = shpAffine.rotate(shpGeom.Point(self.x, self.y), angle, point)
+            if type(newPoint) != shpGeom.Point: return False
+            self.x = newPoint.x
+            self.y = newPoint.y
+            return True
+        except Exception:
+            traceback.print_exc()
+            return False           
